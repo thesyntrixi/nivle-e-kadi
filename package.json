@@ -1,0 +1,44 @@
+{
+  "name": "nivle-e-kadi",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:init": "ts-node --project tsconfig.scripts.json scripts/init-db.ts",
+    "db:test": "ts-node --project tsconfig.scripts.json scripts/test-db.ts"
+  },
+  "dependencies": {
+    "axios": "^1.17.0",
+    "bcryptjs": "^3.0.3",
+    "next": "14.2.35",
+    "next-auth": "^4.24.14",
+    "papaparse": "^5.5.3",
+    "pg": "^8.21.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-hook-form": "^7.79.0",
+    "recharts": "^3.8.1",
+    "sharp": "^0.35.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.19.43",
+    "@types/papaparse": "^5.5.2",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "dotenv": "^16.4.7",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.35",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
+  }
+}

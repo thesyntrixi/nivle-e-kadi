@@ -10,6 +10,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { GuestsTable, GuestsTableLoading } from '@/components/dashboard/GuestsTable';
+import { AddGuestManualForm } from '@/components/forms/AddGuestManualForm';
 
 export default function GuestsPage() {
   return (
@@ -31,6 +32,8 @@ function GuestsPageContent() {
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddGuestModal, setShowAddGuestModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
 
@@ -124,9 +127,18 @@ function GuestsPageContent() {
           </p>
         </div>
         {selectedEventId && (
-          <Link href={`/guests/${selectedEventId}`}>
-            <Button className="w-full sm:w-auto">+ Upload Guest List</Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setShowAddGuestModal(true)}
+            >
+              + Add Guest
+            </Button>
+            <Link href={`/guests/${selectedEventId}`}>
+              <Button className="w-full sm:w-auto">+ Upload Guest List</Button>
+            </Link>
+          </div>
         )}
       </div>
 
@@ -184,6 +196,10 @@ function GuestsPageContent() {
             placeholder="Search by name, phone, email, or code..."
           />
 
+          {successMessage && (
+            <Alert variant="success" message={successMessage} />
+          )}
+
           {error && (
             <Alert variant="error" title="Something went wrong" message={error} />
           )}
@@ -217,6 +233,43 @@ function GuestsPageContent() {
             </div>
           )}
         </>
+      )}
+
+      {showAddGuestModal && selectedEventId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add guest manually"
+          onClick={() => setShowAddGuestModal(false)}
+        >
+          <Card
+            padding="lg"
+            className="w-full max-w-md animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-h3 text-neutral-text">Add Guest</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddGuestModal(false)}
+                className="text-neutral-muted hover:text-neutral-text text-xl leading-none"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <AddGuestManualForm
+              eventId={selectedEventId}
+              onSuccess={() => {
+                setShowAddGuestModal(false);
+                setSuccessMessage('Guest added successfully!');
+                fetchGuests();
+              }}
+              onCancel={() => setShowAddGuestModal(false)}
+            />
+          </Card>
+        </div>
       )}
     </div>
   );

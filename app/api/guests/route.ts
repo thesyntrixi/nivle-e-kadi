@@ -1,63 +1,233 @@
-  /* eslint-disable @typescript-eslint/no-unused-vars */
-  import { NextRequest, NextResponse } from 'next/server';
-  import { verifyToken } from '@/lib/token';
-  import { query } from '@/lib/db';
-  import { getGuestsByEventId } from '@/lib/database/queries';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken } from '@/lib/token';
+import { query } from '@/lib/db';
+import { createGuest, getGuestsByEventId } from '@/lib/database/queries';
+import { Event } from '@/lib/database/types';
 
-  function getUserId(request: NextRequest): string | null {
-    const token = request.cookies.get('auth_token')?.value;
-    if (!token) return null;
-    const decoded = verifyToken(token);
-    return decoded?.userId ?? null;
-  }
+const PHONE_REGEX = /^\+[\d\s()-]{7,20}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  async function verifyEventOwnership(
-    userId: string,
-    eventId: string
-  ): Promise<boolean> {
-    const result = await query(
-      `SELECT e.id FROM events e
-      JOIN clients c ON e.client_id = c.id
-      WHERE e.id = $1 AND c.user_id = $2 AND c.is_active = true`,
-      [eventId, userId]
+function getUserId(request: NextRequest): string | null {
+  const token = request.cookies.get('auth_token')?.value;
+  if (!token) return null;
+  const decoded = verifyToken(token);
+  return decoded?.userId ?? null;
+}
+
+async function getOwnedEvent(
+  userId: string,
+  eventId: string
+): Promise<{ id: string; type: Event['type'] } | null> {
+  const result = await query(
+    `SELECT e.id, e.type FROM events e
+     JOIN clients c ON e.client_id = c.id
+     WHERE e.id = $1 AND c.user_id = $2 AND c.is_active = true`,
+    [eventId, userId]
+  );
+  return result.rows[0] || null;
+}
+
+function getCodePrefix(eventType: Event['type']): string {
+  const prefixes: Record<Event['type'], string> = {
+    Wedding: 'WED',
+    Birthday: 'BDA',
+    Conference: 'CON',
+    Corporate: 'COR',
+    Other: 'EVT',
+  };
+  return prefixes[eventType] || 'EVT';
+}
+
+async function generateUniqueCode(
+  eventId: string,
+  eventType: Event['type'],
+  sequence: number
+): Promise<string> {
+  const prefix = getCodePrefix(eventType);
+  let attempt = sequence;
+
+  for (let i = 0; i < 100; i++) {
+    const code = `${prefix}-${String(attempt).padStart(5, '0')}`;
+    const existing = await query(
+      'SELECT id FROM guests WHERE invitation_code = $1',
+      [code]
     );
-    return result.rows.length > 0;
+    if (existing.rows.length === 0) {
+      return code;
+    }
+    attempt++;
   }
 
-  export async function GET(request: NextRequest) {
-    try {
-      const userId = getUserId(request);
-      if (!userId) {
-        return NextResponse.json(
-          { success: false, error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
+  const fallback = `${prefix}-${eventId.slice(0, 4).toUpperCase()}-${Date.now().toString(36)}`;
+  return fallback.slice(0, 20);
+}
 
-      const { searchParams } = new URL(request.url);
-      const eventId = searchParams.get('event_id');
+async function isDuplicate(
+  eventId: string,
+  name: string,
+  phone: string
+): Promise<boolean> {
+  const result = await query(
+    `SELECT id FROM guests
+     WHERE event_id = $1 AND LOWER(name) = LOWER($2) AND phone = $3`,
+    [eventId, name, phone]
+  );
+  return result.rows.length > 0;
+}
 
-      if (!eventId) {
-        return NextResponse.json(
-          { success: false, error: 'Event ID is required' },
-          { status: 400 }
-        );
-      }
+async function updateEventGuestCount(eventId: string): Promise<void> {
+  await query(
+    `UPDATE events SET guest_count = (
+       SELECT COUNT(*)::int FROM guests WHERE event_id = $1
+     ), updated_at = NOW() WHERE id = $1`,
+    [eventId]
+  );
+}
 
-      if (!(await verifyEventOwnership(userId, eventId))) {
-        return NextResponse.json(
-          { success: false, error: 'Event not found' },
-          { status: 404 }
-        );
-      }
+function validateGuestBody(body: {
+  event_id?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+}): string | null {
+  const eventId = body.event_id?.trim();
+  const name = body.name?.trim();
+  const email = body.email?.trim();
+  const phone = body.phone?.trim();
 
-      const guests = await getGuestsByEventId(eventId);
-      return NextResponse.json({ success: true, data: guests });
-    } catch (error) {
-      console.error('GET /api/guests error:', error);
+  if (!eventId) {
+    return 'Event is required';
+  }
+  if (!name || name.length < 2) {
+    return 'Name must be at least 2 characters';
+  }
+  if (name.length > 100) {
+    return 'Name must be at most 100 characters';
+  }
+  if (!email) {
+    return 'Email is required';
+  }
+  if (!EMAIL_REGEX.test(email)) {
+    return 'Invalid email format';
+  }
+  if (!phone) {
+    return 'Phone number is required';
+  }
+  if (!PHONE_REGEX.test(phone)) {
+    return 'Phone must start with + (e.g., +255712345678)';
+  }
+
+  return null;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const userId = getUserId(request);
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Failed to load guests. Please try again.' },
-        { status: 500 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       );
     }
+
+    const { searchParams } = new URL(request.url);
+    const eventId = searchParams.get('event_id');
+
+    if (!eventId) {
+      return NextResponse.json(
+        { success: false, error: 'Event ID is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!(await getOwnedEvent(userId, eventId))) {
+      return NextResponse.json(
+        { success: false, error: 'Event not found' },
+        { status: 404 }
+      );
+    }
+
+    const guests = await getGuestsByEventId(eventId);
+    return NextResponse.json({ success: true, data: guests });
+  } catch (error) {
+    console.error('GET /api/guests error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to load guests. Please try again.' },
+      { status: 500 }
+    );
   }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const userId = getUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const validationError = validateGuestBody(body);
+
+    if (validationError) {
+      return NextResponse.json(
+        { success: false, error: validationError },
+        { status: 400 }
+      );
+    }
+
+    const eventId = body.event_id.trim();
+    const name = body.name.trim();
+    const email = body.email.trim();
+    const phone = body.phone.trim();
+
+    const event = await getOwnedEvent(userId, eventId);
+    if (!event) {
+      return NextResponse.json(
+        { success: false, error: 'Event not found' },
+        { status: 404 }
+      );
+    }
+
+    if (await isDuplicate(eventId, name, phone)) {
+      return NextResponse.json(
+        { success: false, error: 'A guest with this name and phone already exists' },
+        { status: 409 }
+      );
+    }
+
+    const countResult = await query(
+      'SELECT COUNT(*)::int AS count FROM guests WHERE event_id = $1',
+      [eventId]
+    );
+    const sequence = countResult.rows[0].count + 1;
+    const invitationCode = await generateUniqueCode(eventId, event.type, sequence);
+
+    const guest = await createGuest({
+      event_id: eventId,
+      name,
+      phone,
+      email,
+      invitation_code: invitationCode,
+      qr_code_url: null,
+      personalized_card_url: null,
+      sent_at: null,
+      delivered_at: null,
+      opened_at: null,
+      status: 'Pending',
+    });
+
+    await updateEventGuestCount(eventId);
+
+    return NextResponse.json({ success: true, data: guest });
+  } catch (error) {
+    console.error('POST /api/guests error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to add guest. Please try again.' },
+      { status: 500 }
+    );
+  }
+}

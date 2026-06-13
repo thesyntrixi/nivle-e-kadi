@@ -61,8 +61,7 @@ function getCodePrefix(eventType: Event['type']): string {
 
 function parseSpreadsheet(
   buffer: Buffer,
-  fileName: string,
-  mapping: ColumnMapping
+  fileName: string
 ): string[][] {
   const ext = fileName.split('.').pop()?.toLowerCase();
 
@@ -246,7 +245,7 @@ export async function POST(request: NextRequest) {
     let rawRows: string[][];
 
     try {
-      rawRows = parseSpreadsheet(buffer, file.name, mapping);
+      rawRows = parseSpreadsheet(buffer, file.name);
     } catch (parseError) {
       console.error('Parse error:', parseError);
       return NextResponse.json(

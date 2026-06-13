@@ -61,8 +61,7 @@ function getCodePrefix(eventType: Event['type']): string {
 
 function parseSpreadsheet(
   buffer: Buffer,
-  fileName: string,
-  // mapping: ColumnMapping
+  fileName: string
 ): string[][] {
   const ext = fileName.split('.').pop()?.toLowerCase();
 

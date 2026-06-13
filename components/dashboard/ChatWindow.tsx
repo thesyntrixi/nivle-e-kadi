@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-// import type { MessageWithGuest } from '@/app/api/messages/route';
 import { Message } from '@/lib/database/types';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';

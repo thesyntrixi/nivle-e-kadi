@@ -36,10 +36,6 @@ async function verifyEventOwnership(
   return result.rows.length > 0;
 }
 
-// function sanitizeFileName(name: string): string {
-//   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
-// }
-
 export async function POST(request: NextRequest) {
   try {
     const userId = getUserId(request);

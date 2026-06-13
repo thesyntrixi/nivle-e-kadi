@@ -45,7 +45,6 @@ function StatusBadge({ status }: { status: Guest['status'] }) {
 
 export function GuestsTable({
   guests,
-  // eventId,
   onDelete,
   onRefresh,
   deletingId = null,

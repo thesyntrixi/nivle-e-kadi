@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/token';
 import { query } from '@/lib/db';

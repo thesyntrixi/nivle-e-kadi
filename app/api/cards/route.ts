@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       FROM card_templates ct
       JOIN events e ON ct.event_id = e.id
       JOIN clients c ON e.client_id = c.id
+      WHERE c.user_id = $1 AND c.is_active = true
     `;
     const params: string[] = [userId];
 

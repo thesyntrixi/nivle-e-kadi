@@ -8,16 +8,19 @@
     "start": "next start",
     "lint": "next lint",
     "db:init": "ts-node --project tsconfig.scripts.json scripts/init-db.ts",
-    "db:test": "ts-node --project tsconfig.scripts.json scripts/test-db.ts"
+    "db:test": "ts-node --project tsconfig.scripts.json scripts/test-db.ts",
+    "db:add-checkin": "ts-node --project tsconfig.scripts.json scripts/add-checkin-columns.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.0",
     "axios": "^1.17.0",
     "bcryptjs": "^3.0.3",
+    "html5-qrcode": "^2.3.8",
     "next": "14.2.35",
     "next-auth": "^4.24.14",
     "papaparse": "^5.5.3",
     "pg": "^8.21.0",
+    "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
     "react": "^18",
     "react-dom": "^18",
@@ -32,6 +35,7 @@
     "@types/node": "^20.19.43",
     "@types/papaparse": "^5.5.2",
     "@types/pg": "^8.20.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "dotenv": "^16.4.7",

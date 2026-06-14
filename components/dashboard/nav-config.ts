@@ -6,6 +6,7 @@ export const navItems = [
   { href: "/events", label: "Events", icon: "events" },
   { href: "/cards", label: "Cards", icon: "cards" },
   { href: "/guests", label: "Guests", icon: "guests" },
+  { href: "/checkin", label: "Check-in", icon: "checkin" },
 ] as const;
 
 export type NavIcon = (typeof navItems)[number]["icon"];

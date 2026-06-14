@@ -2,18 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import type { MessageWithGuest } from '@/app/api/messages/route';
 import { Client, Event } from '@/lib/database/types';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { StatCard } from '@/components/dashboard/StatCard';
-import {
-  ChatList,
-  Conversation,
-  ChatFilter,
-} from '@/components/dashboard/ChatList';
 
 type StatsData = {
   totalClients: number;
@@ -40,34 +33,6 @@ type ActivityItem = {
 };
 
 type CardItem = { id: string; created_at: Date; event_name: string; original_file_name: string };
-
-function buildConversations(messages: MessageWithGuest[]): Conversation[] {
-  const map = new Map<string, Conversation>();
-
-  for (const msg of messages) {
-    if (map.has(msg.guest_id)) continue;
-
-    const isUnread =
-      msg.display_status !== 'Read' &&
-      (msg.status === 'Pending' || msg.status === 'Sent');
-
-    map.set(msg.guest_id, {
-      guest_id: msg.guest_id,
-      guest_name: msg.guest_name,
-      guest_phone: msg.guest_phone,
-      last_message: msg.content,
-      last_message_time: msg.sent_at ?? msg.created_at,
-      message_type: msg.message_type,
-      unread_count: isUnread ? 1 : 0,
-    });
-  }
-
-  return Array.from(map.values()).sort((a, b) => {
-    const ta = new Date(a.last_message_time ?? 0).getTime();
-    const tb = new Date(b.last_message_time ?? 0).getTime();
-    return tb - ta;
-  });
-}
 
 function formatTrend(trend: { change: number; direction: 'up' | 'down' | 'neutral' }): string {
   if (trend.direction === 'neutral') return 'No change vs last 30 days';
@@ -225,8 +190,6 @@ function QuickAccessCard({
 }
 
 export default function DashboardHome() {
-  const router = useRouter();
-
   const [messages, setMessages] = useState<MessageWithGuest[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [cardCount, setCardCount] = useState(0);
@@ -234,34 +197,8 @@ export default function DashboardHome() {
   const [cards, setCards] = useState<CardItem[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
-  const [loadingMessages, setLoadingMessages] = useState(true);
-  const [loadingStats, setLoadingStats] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [msgFilter, setMsgFilter] = useState<ChatFilter>('All');
-
-  const conversations = useMemo(() => buildConversations(messages), [messages]);
-
-  const filteredConversations = useMemo(() => {
-    let list = conversations;
-
-    if (msgFilter === 'SMS') list = list.filter((c) => c.message_type === 'SMS');
-    else if (msgFilter === 'WhatsApp') list = list.filter((c) => c.message_type === 'WhatsApp');
-    else if (msgFilter === 'Unread') list = list.filter((c) => (c.unread_count ?? 0) > 0);
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (c) =>
-          c.guest_name.toLowerCase().includes(q) ||
-          c.guest_phone.includes(q) ||
-          c.last_message?.toLowerCase().includes(q)
-      );
-    }
-
-    return list.slice(0, 5);
-  }, [conversations, msgFilter, searchQuery]);
 
   const activity = useMemo(
     () => buildActivity(messages, events, cards, clients),
@@ -269,8 +206,7 @@ export default function DashboardHome() {
   );
 
   const fetchDashboardData = useCallback(async () => {
-    setLoadingMessages(true);
-    setLoadingStats(true);
+    setLoading(true);
     setError('');
 
     try {
@@ -303,8 +239,7 @@ export default function DashboardHome() {
       console.error('Dashboard fetch error:', err);
       setError('Failed to load dashboard data. Please refresh the page.');
     } finally {
-      setLoadingMessages(false);
-      setLoadingStats(false);
+      setLoading(false);
     }
   }, []);
 
@@ -312,56 +247,10 @@ export default function DashboardHome() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  function handleSelectGuest(guestId: string) {
-    router.push(`/messages?guest=${guestId}`);
-  }
-
   return (
     <div className="space-y-8 animate-fade-in">
-      <section>
-        <h2 className="text-h1 text-neutral-text">Welcome back</h2>
-        <p className="text-neutral-muted mt-2 max-w-2xl">
-          Overview of your NIVLE E-Kadi activity — messages, campaigns, and recent updates.
-        </p>
-      </section>
-
       {error && <Alert variant="error" message={error} />}
 
-      {/* Section 1: Messages Spotlight */}
-      <section>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div>
-            <h3 className="text-h2 text-neutral-text">Messages Spotlight</h3>
-            <p className="text-small text-neutral-muted mt-0.5">
-              Recent conversations — click to open chat
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link href="/messages">
-              <Button variant="outline" className="!text-small">View All</Button>
-            </Link>
-            <Link href="/messages">
-              <Button className="!text-small">+ New Message</Button>
-            </Link>
-          </div>
-        </div>
-
-        <Card padding="sm" className="overflow-hidden">
-          <div className="max-h-[420px] flex flex-col">
-            <ChatList
-              conversations={filteredConversations}
-              onSelectGuest={handleSelectGuest}
-              onSearch={setSearchQuery}
-              filter={msgFilter}
-              onFilterChange={setMsgFilter}
-              isLoading={loadingMessages}
-              className="h-full border-0"
-            />
-          </div>
-        </Card>
-      </section>
-
-      {/* Section 2: Quick Access Cards */}
       <section>
         <div className="mb-4">
           <h3 className="text-h2 text-neutral-text">Quick Access</h3>
@@ -378,7 +267,7 @@ export default function DashboardHome() {
             buttonLabel="View Clients"
             icon="👥"
             accent="bg-primary/15 text-primary"
-            loading={loadingStats}
+            loading={loading}
           />
           <QuickAccessCard
             title="Events"
@@ -388,7 +277,7 @@ export default function DashboardHome() {
             buttonLabel="Create Event"
             icon="📅"
             accent="bg-purple-500/15 text-purple-400"
-            loading={loadingStats}
+            loading={loading}
           />
           <QuickAccessCard
             title="Cards"
@@ -398,7 +287,7 @@ export default function DashboardHome() {
             buttonLabel="View Cards"
             icon="🎨"
             accent="bg-accent-success/15 text-accent-success"
-            loading={loadingStats}
+            loading={loading}
           />
           <QuickAccessCard
             title="Guests"
@@ -408,19 +297,18 @@ export default function DashboardHome() {
             buttonLabel="View Guests"
             icon="🎫"
             accent="bg-accent-warning/15 text-accent-warning"
-            loading={loadingStats}
+            loading={loading}
           />
         </div>
       </section>
 
-      {/* Section 3: Key Metrics */}
       <section>
         <div className="mb-4">
           <h3 className="text-h2 text-neutral-text">Key Metrics</h3>
           <p className="text-small text-neutral-muted mt-0.5">Last 30 days performance</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-          {loadingStats ? (
+          {loading ? (
             <>
               <SkeletonCard />
               <SkeletonCard />
@@ -457,14 +345,13 @@ export default function DashboardHome() {
         </div>
       </section>
 
-      {/* Section 4: Recent Activity */}
       <section>
         <div className="mb-4">
           <h3 className="text-h2 text-neutral-text">Recent Activity</h3>
           <p className="text-small text-neutral-muted mt-0.5">Latest actions across your account</p>
         </div>
         <Card padding="md">
-          {loadingStats && loadingMessages ? (
+          {loading ? (
             <div className="space-y-4 animate-pulse">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="flex gap-3">

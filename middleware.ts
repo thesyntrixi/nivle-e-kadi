@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyToken } from '@/lib/token';
 
-const publicPaths = ['/login', '/api/auth/login', '/api/auth/logout'];
+const publicPaths = ['/login', '/api/auth/login', '/api/auth/logout', '/invite'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

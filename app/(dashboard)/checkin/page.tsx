@@ -2,10 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { Event } from '@/lib/database/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
+
+type GuestRow = {
+  id: string;
+  checked_in?: boolean;
+  checked_in_at?: string | null;
+};
 
 type CheckinResult = {
   success: boolean;
@@ -28,30 +35,97 @@ function extractCode(decodedText: string): string {
   return trimmed;
 }
 
+function formatCheckinTime(iso?: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default function CheckinPage() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState('');
+  const [guests, setGuests] = useState<GuestRow[]>([]);
+  const [loadingGuests, setLoadingGuests] = useState(false);
+
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [manualCode, setManualCode] = useState('');
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [paused, setPaused] = useState(false);
+
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isProcessingRef = useRef(false);
 
-  const submitCode = useCallback(async (code: string) => {
-    const normalized = code.trim();
-    if (!normalized) return;
+  const totalGuests = guests.length;
+  const checkedInCount = guests.filter((g) => g.checked_in).length;
 
+  const fetchGuestCounts = useCallback(async (eventId: string) => {
+    if (!eventId) {
+      setGuests([]);
+      return;
+    }
+
+    setLoadingGuests(true);
     try {
-      const res = await fetch('/api/guests/checkin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: normalized }),
-      });
+      const res = await fetch(`/api/guests?event_id=${eventId}`);
       const data = await res.json();
-      setResult(data);
-    } catch {
-      setResult({ success: false, error: 'Network error' });
+      if (data.success) {
+        setGuests(data.data);
+      }
+    } catch (err) {
+      console.error('Fetch guests error:', err);
+    } finally {
+      setLoadingGuests(false);
     }
   }, []);
+
+  useEffect(() => {
+    fetch('/api/events')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setEvents(d.data);
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    fetchGuestCounts(selectedEventId);
+  }, [selectedEventId, fetchGuestCounts]);
+
+  const pauseScanner = useCallback(async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.pause(true);
+        setPaused(true);
+      } catch (err) {
+        console.error('Pause scanner error:', err);
+      }
+    }
+  }, []);
+
+  const submitCode = useCallback(
+    async (code: string) => {
+      const normalized = code.trim();
+      if (!normalized) return;
+
+      try {
+        const res = await fetch('/api/guests/checkin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: normalized }),
+        });
+        const data = await res.json();
+        setResult(data);
+        await pauseScanner();
+      } catch {
+        setResult({ success: false, error: 'Network error' });
+        await pauseScanner();
+      }
+    },
+    [pauseScanner]
+  );
 
   const handleScan = useCallback(
     async (decodedText: string) => {
@@ -60,11 +134,6 @@ export default function CheckinPage() {
 
       const code = extractCode(decodedText);
       await submitCode(code);
-
-      setTimeout(() => {
-        isProcessingRef.current = false;
-        setResult(null);
-      }, 4000);
     },
     [submitCode]
   );
@@ -74,12 +143,25 @@ export default function CheckinPage() {
     const scanner = new Html5Qrcode('qr-reader');
     scannerRef.current = scanner;
 
+    const scanConfig = {
+      fps: 10,
+      qrbox: { width: 220, height: 220 },
+      aspectRatio: 1.0,
+      videoConstraints: {
+        width: { min: 640, ideal: 1280 },
+        height: { min: 480, ideal: 720 },
+        facingMode: 'environment',
+      },
+    };
+
     scanner
       .start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        scanConfig,
         (decodedText) => {
-          if (mounted) handleScan(decodedText);
+          if (mounted && !isProcessingRef.current) {
+            handleScan(decodedText);
+          }
         },
         () => {}
       )
@@ -107,13 +189,29 @@ export default function CheckinPage() {
   }, [handleScan]);
 
   async function handleManualCheckin() {
+    if (isProcessingRef.current) return;
     isProcessingRef.current = true;
-    await submitCode(manualCode);
+    const code = manualCode;
     setManualCode('');
-    setTimeout(() => {
-      isProcessingRef.current = false;
-      setResult(null);
-    }, 4000);
+    await submitCode(code);
+  }
+
+  async function handleConfirmNext() {
+    setResult(null);
+    isProcessingRef.current = false;
+    setPaused(false);
+
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.resume();
+      } catch (err) {
+        console.error('Resume scanner error:', err);
+      }
+    }
+
+    if (selectedEventId) {
+      await fetchGuestCounts(selectedEventId);
+    }
   }
 
   function renderResult() {
@@ -121,35 +219,52 @@ export default function CheckinPage() {
 
     if (!result.success) {
       return (
-        <Alert
-          variant="error"
-          title="Check-in failed"
-          message={result.error || 'Invalid QR code'}
-        />
+        <Card padding="lg" className="border border-accent-error/40 bg-accent-error/10 text-center space-y-4">
+          <p className="text-2xl font-bold text-accent-error">❌</p>
+          <p className="text-lg font-semibold text-accent-error">
+            QR Code haijulikani / si sahihi
+          </p>
+          {result.error && (
+            <p className="text-small text-neutral-muted">{result.error}</p>
+          )}
+          <Button fullWidth onClick={handleConfirmNext}>
+            Confirm / Scan Next
+          </Button>
+        </Card>
       );
     }
 
     if (result.alreadyCheckedIn) {
+      const time = formatCheckinTime(result.data?.checked_in_at);
       return (
-        <div className="p-4 rounded-card border border-accent-warning/40 bg-accent-warning/10">
-          <p className="font-semibold text-accent-warning">⚠️ Already checked in</p>
-          <p className="text-sm text-neutral-text mt-1">
-            {result.data?.name}
-            {result.data?.event_name ? ` — ${result.data.event_name}` : ''}
+        <Card padding="lg" className="border border-accent-warning/40 bg-accent-warning/10 text-center space-y-4">
+          <p className="text-2xl font-bold text-accent-warning">⚠️</p>
+          <p className="text-lg font-semibold text-neutral-text">
+            {result.data?.name} ALIKWISHA fika saa {time}
           </p>
-          <p className="text-small text-neutral-muted mt-1">{result.message}</p>
-        </div>
+          {result.data?.event_name && (
+            <p className="text-small text-neutral-muted">{result.data.event_name}</p>
+          )}
+          <Button fullWidth onClick={handleConfirmNext}>
+            Confirm / Scan Next
+          </Button>
+        </Card>
       );
     }
 
     return (
-      <div className="p-4 rounded-card border border-accent-success/40 bg-accent-success/10">
-        <p className="font-semibold text-accent-success">✅ Karibu {result.data?.name}!</p>
+      <Card padding="lg" className="border border-accent-success/40 bg-accent-success/10 text-center space-y-4">
+        <p className="text-2xl font-bold text-accent-success">✅</p>
+        <p className="text-lg font-semibold text-neutral-text">
+          {result.data?.name} - Karibu! Amesajiliwa kikamilifu.
+        </p>
         {result.data?.event_name && (
-          <p className="text-sm text-neutral-text mt-1">{result.data.event_name}</p>
+          <p className="text-small text-neutral-muted">{result.data.event_name}</p>
         )}
-        <p className="text-small text-neutral-muted mt-1">{result.message}</p>
-      </div>
+        <Button fullWidth onClick={handleConfirmNext}>
+          Confirm / Scan Next
+        </Button>
+      </Card>
     );
   }
 
@@ -162,17 +277,51 @@ export default function CheckinPage() {
         </p>
       </div>
 
+      <Card padding="md" className="space-y-4">
+        <div className="space-y-2">
+          <label
+            htmlFor="event-select"
+            className="block text-small font-medium uppercase tracking-wide text-neutral-muted"
+          >
+            Select Event
+          </label>
+          <select
+            id="event-select"
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+            className="input-field appearance-none cursor-pointer w-full"
+          >
+            <option value="">Choose an event</option>
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="text-center py-2">
+          <p className="text-small text-neutral-muted uppercase tracking-wide">Wamefika</p>
+          <p className="text-4xl font-bold text-neutral-text mt-1">
+            {loadingGuests ? '—' : `${checkedInCount} / ${totalGuests}`}
+          </p>
+        </div>
+      </Card>
+
       <Card padding="md">
-        <div
-          id="qr-reader"
-          className="w-full overflow-hidden rounded-card"
-          style={{ minHeight: scanning ? 280 : 120 }}
-        />
+        <div className="mx-auto w-full" style={{ maxWidth: 400 }}>
+          <div
+            id="qr-reader"
+            className="w-full overflow-hidden rounded-card"
+            style={{ minHeight: scanning ? 260 : 120 }}
+          />
+        </div>
         {!scanning && !cameraError && (
           <p className="text-center text-small text-neutral-muted py-8">Starting camera...</p>
         )}
-        {cameraError && (
-          <Alert variant="warning" message={cameraError} />
+        {cameraError && <Alert variant="warning" message={cameraError} />}
+        {paused && !result && (
+          <p className="text-center text-small text-neutral-muted mt-2">Scanner paused</p>
         )}
       </Card>
 
@@ -184,9 +333,14 @@ export default function CheckinPage() {
           value={manualCode}
           onChange={(e) => setManualCode(e.target.value)}
           placeholder="Au weka invitation code manually"
-          onKeyDown={(e) => e.key === 'Enter' && handleManualCheckin()}
+          onKeyDown={(e) => e.key === 'Enter' && !isProcessingRef.current && handleManualCheckin()}
+          disabled={isProcessingRef.current && !!result}
         />
-        <Button fullWidth onClick={handleManualCheckin} disabled={!manualCode.trim()}>
+        <Button
+          fullWidth
+          onClick={handleManualCheckin}
+          disabled={!manualCode.trim() || (isProcessingRef.current && !!result)}
+        >
           Check In
         </Button>
       </Card>

@@ -16,6 +16,10 @@ function createAuthHeader(): string {
   return `Basic ${encoded}`;
 }
 
+function formatPhoneForNextSms(phone: string): string {
+  return phone.replace(/\s+/g, '').replace(/^\+/, '');
+}
+
 /**
  * Send SMS via NextSms API
  * @param phone - Recipient phone number (e.g., +255712345678)
@@ -47,18 +51,28 @@ export async function sendSMS(
     }
 
     const normalizedPhone = phone.replace(/\s+/g, '');
+    const phoneWithPlus = normalizedPhone.startsWith('+')
+      ? normalizedPhone
+      : `+${normalizedPhone}`;
 
-    if (!/^\+\d{10,15}$/.test(normalizedPhone)) {
+    if (!/^\+\d{10,15}$/.test(phoneWithPlus)) {
       return {
         success: false,
         error: 'Invalid phone format. Use +255... format',
       };
     }
 
-    const body = JSON.stringify({
-      to: normalizedPhone,
-      message: message.substring(0, 160),
-    });
+    const formattedPhone = formatPhoneForNextSms(normalizedPhone);
+    const reference = `nivle-${Date.now()}`;
+
+    const requestBody = {
+      from: 'NivleDesign',
+      to: formattedPhone,
+      text: message.substring(0, 160),
+      reference,
+    };
+
+    console.log('NextSms request payload:', JSON.stringify(requestBody));
 
     const response = await fetch(NEXTSMS_API_URL, {
       method: 'POST',
@@ -67,13 +81,14 @@ export async function sendSMS(
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body,
+      body: JSON.stringify(requestBody),
     });
 
     const data = await response.json().catch(() => ({}));
+    console.log('NextSms response:', JSON.stringify(data));
 
     if (response.ok && data.success !== false) {
-      const id = data.messageId || data.id || '';
+      const id = data.messageId || data.id || reference;
       return {
         success: true,
         externalId: id,
@@ -81,9 +96,10 @@ export async function sendSMS(
       };
     }
 
+    console.error('NextSms API error:', JSON.stringify(data));
+
     const errorMessage =
-      data.message || data.error || 'SMS service unavailable';
-    console.error(`NextSms API error: ${errorMessage}`);
+      data.message || data.error || JSON.stringify(data) || 'SMS service unavailable';
 
     return {
       success: false,

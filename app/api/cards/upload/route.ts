@@ -2,11 +2,9 @@ export const dynamic = 'force-dynamic';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 import { verifyToken } from '@/lib/token';
 import { query } from '@/lib/db';
-import { mkdir, writeFile } from 'fs/promises';
-import path from 'path';
-import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -16,8 +14,6 @@ const ALLOWED_TYPES: Record<string, 'PNG' | 'JPG' | 'PDF'> = {
   'image/jpg': 'JPG',
   'application/pdf': 'PDF',
 };
-
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'cards');
 
 function getUserId(request: NextRequest): string | null {
   const token = request.cookies.get('auth_token')?.value;
@@ -99,14 +95,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await mkdir(UPLOAD_DIR, { recursive: true });
-
-    const ext = path.extname(file.name) || (fileType === 'PDF' ? '.pdf' : '.png');
-    const storedName = `${randomUUID()}${ext}`;
-    const filePath = path.join(UPLOAD_DIR, storedName);
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    await writeFile(filePath, buffer);
+    const blob = await put(`cards/${file.name}`, buffer, {
+      access: 'public',
+      addRandomSuffix: true,
+      contentType: file.type,
+    });
 
     let width: number | null = null;
     let height: number | null = null;
@@ -121,7 +116,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const fileUrl = `/uploads/cards/${storedName}`;
+    const fileUrl = blob.url;
 
     const result = await query(
       `INSERT INTO card_templates

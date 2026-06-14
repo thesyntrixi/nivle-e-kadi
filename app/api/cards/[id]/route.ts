@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { del } from '@vercel/blob';
 import { verifyToken } from '@/lib/token';
 import { query } from '@/lib/db';
 import { unlink } from 'fs/promises';
@@ -67,8 +68,13 @@ async function verifyEventOwnership(
   return result.rows.length > 0;
 }
 
-async function deleteFileFromDisk(fileUrl: string): Promise<void> {
+async function deleteStoredFile(fileUrl: string): Promise<void> {
   try {
+    if (fileUrl.startsWith('http')) {
+      await del(fileUrl);
+      return;
+    }
+
     const relative = fileUrl.replace(/^\//, '');
     const filePath = path.join(process.cwd(), 'public', relative);
     await unlink(filePath);
@@ -183,7 +189,7 @@ export async function DELETE(
       );
     }
 
-    await deleteFileFromDisk(existing.file_url);
+    await deleteStoredFile(existing.file_url);
     await query('DELETE FROM card_templates WHERE id = $1', [params.id]);
 
     return NextResponse.json({

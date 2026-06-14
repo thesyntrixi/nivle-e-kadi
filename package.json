@@ -11,6 +11,7 @@
     "db:test": "ts-node --project tsconfig.scripts.json scripts/test-db.ts"
   },
   "dependencies": {
+    "@vercel/blob": "^2.4.0",
     "axios": "^1.17.0",
     "bcryptjs": "^3.0.3",
     "next": "14.2.35",

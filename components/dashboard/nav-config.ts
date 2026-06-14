@@ -7,9 +7,15 @@ export const navItems = [
   { href: "/cards", label: "Cards", icon: "cards" },
   { href: "/guests", label: "Guests", icon: "guests" },
   { href: "/checkin", label: "Check-in", icon: "checkin" },
+  { href: "/staff", label: "Staff", icon: "staff" },
 ] as const;
 
-export type NavIcon = (typeof navItems)[number]["icon"];
+export const staffNavItems = [
+  { href: "/check-in-staff", label: "Check-in", icon: "checkin" },
+] as const;
+
+export type NavItem = (typeof navItems)[number] | (typeof staffNavItems)[number];
+export type NavIcon = NavItem["icon"];
 
 export const pageMeta: Record<string, { title: string; subtitle: string }> = {
   "/": { title: "Dashboard", subtitle: "Overview of your NIVLE E-Kadi activity" },
@@ -19,4 +25,6 @@ export const pageMeta: Record<string, { title: string; subtitle: string }> = {
   "/events": { title: "Events", subtitle: "Create and manage events" },
   "/cards": { title: "Cards", subtitle: "Design and upload invitation cards" },
   "/guests": { title: "Guests", subtitle: "Manage guest lists and invitations" },
+  "/staff": { title: "Staff", subtitle: "Manage check-in staff and event assignments" },
+  "/check-in-staff": { title: "Check-in", subtitle: "Select an event to check in guests" },
 };

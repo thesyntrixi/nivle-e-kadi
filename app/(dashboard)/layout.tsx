@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
+import { navItems, staffNavItems } from "@/components/dashboard/nav-config";
+import { UserRole } from "@/lib/database/types";
+import { Spinner } from "@/components/ui/Spinner";
 
 export default function DashboardLayout({
   children,
@@ -14,6 +17,20 @@ export default function DashboardLayout({
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [loadingRole, setLoadingRole] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setRole(d.data.role);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoadingRole(false));
+  }, []);
 
   async function handleLogout() {
     setLogoutLoading(true);
@@ -27,6 +44,16 @@ export default function DashboardLayout({
     }
   }
 
+  const sidebarItems = role === "check-in-staff" ? staffNavItems : navItems;
+
+  if (loadingRole) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-surface-page">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-surface-page overflow-hidden">
       <div className="hidden lg:flex shrink-0">
@@ -35,6 +62,7 @@ export default function DashboardLayout({
           onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
           logoutLoading={logoutLoading}
           onLogout={handleLogout}
+          items={sidebarItems}
         />
       </div>
 
@@ -53,6 +81,7 @@ export default function DashboardLayout({
               logoutLoading={logoutLoading}
               onLogout={handleLogout}
               mobile
+              items={sidebarItems}
             />
           </div>
         </div>

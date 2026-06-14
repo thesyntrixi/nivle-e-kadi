@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Logo } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { navItems } from "./nav-config";
+import { navItems, staffNavItems, NavItem } from "./nav-config";
 import { NavIconSvg } from "./NavIcon";
 
 interface SidebarProps {
@@ -15,6 +15,7 @@ interface SidebarProps {
   logoutLoading: boolean;
   onLogout: () => void;
   mobile?: boolean;
+  items?: readonly NavItem[];
 }
 
 export function Sidebar({
@@ -24,6 +25,7 @@ export function Sidebar({
   logoutLoading,
   onLogout,
   mobile = false,
+  items = navItems,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -71,7 +73,7 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto" aria-label="Main navigation">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const active = isActive(item.href);
           return (
             <Link

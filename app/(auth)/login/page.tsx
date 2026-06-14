@@ -34,7 +34,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/");
+      const role = data.data?.user?.role;
+      router.push(role === "check-in-staff" ? "/check-in-staff" : "/");
     } catch (err) {
       setError("An error occurred. Please try again.");
       console.error(err);

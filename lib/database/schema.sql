@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(20) DEFAULT 'admin' CHECK (role IN ('admin', 'check-in-staff')),
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -65,6 +66,8 @@ CREATE TABLE IF NOT EXISTS guests (
   delivered_at TIMESTAMPTZ,
   opened_at TIMESTAMPTZ,
   status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Sent', 'Delivered', 'Opened', 'Failed')),
+  checked_in BOOLEAN DEFAULT FALSE,
+  checked_in_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -119,6 +122,18 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 
 CREATE INDEX idx_reports_event_id ON reports(event_id);
+
+-- ===== STAFF EVENTS TABLE (check-in staff assignments) =====
+CREATE TABLE IF NOT EXISTS staff_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  assigned_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(staff_id, event_id)
+);
+
+CREATE INDEX idx_staff_events_staff ON staff_events(staff_id);
+CREATE INDEX idx_staff_events_event ON staff_events(event_id);
 
 -- ===== VIEWS FOR ANALYTICS =====
 

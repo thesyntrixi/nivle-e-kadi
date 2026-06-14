@@ -1,9 +1,12 @@
 // lib/database/types.ts
 
+export type UserRole = 'admin' | 'check-in-staff';
+
 export type User = {
   id: string;
   email: string;
   password_hash: string;
+  role: UserRole;
   is_active: boolean;
   created_at: Date;
   updated_at: Date;
@@ -50,6 +53,8 @@ export type Guest = {
   delivered_at: Date | null;
   opened_at: Date | null;
   status: 'Pending' | 'Sent' | 'Delivered' | 'Opened' | 'Failed';
+  checked_in?: boolean;
+  checked_in_at?: Date | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -100,6 +105,18 @@ export type EventStats = {
   opened_count: number;
   failed_count: number;
   delivery_rate: number;
+};
+
+export type StaffEvent = {
+  id: string;
+  staff_id: string;
+  event_id: string;
+  assigned_at: Date;
+};
+
+export type AssignedEvent = Event & {
+  total_guests: number;
+  checked_in_count: number;
 };
 
 export type ClientOverview = {

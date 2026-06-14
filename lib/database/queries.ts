@@ -2,7 +2,7 @@
 // Common database query functions
 
 import { query } from '../db';
-import { User, Client, Event, Guest } from './types';
+import { User, Client, Event, Guest, AssignedEvent, StaffEvent } from './types';
 
 // ===== USER QUERIES =====
 export async function getUserByEmail(email: string) {
@@ -10,12 +10,173 @@ export async function getUserByEmail(email: string) {
   return result.rows[0] as User | undefined;
 }
 
-export async function createUser(email: string, passwordHash: string) {
+export async function getUserWithRole(email: string) {
   const result = await query(
-    'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *',
-    [email, passwordHash]
+    'SELECT id, email, role, is_active, created_at, updated_at FROM users WHERE email = $1',
+    [email]
+  );
+  return result.rows[0] as Pick<User, 'id' | 'email' | 'role' | 'is_active' | 'created_at' | 'updated_at'> | undefined;
+}
+
+export async function getUserById(userId: string) {
+  const result = await query(
+    'SELECT id, email, role, is_active, created_at, updated_at FROM users WHERE id = $1',
+    [userId]
+  );
+  return result.rows[0] as Pick<User, 'id' | 'email' | 'role' | 'is_active' | 'created_at' | 'updated_at'> | undefined;
+}
+
+export async function createUser(email: string, passwordHash: string, role: User['role'] = 'admin') {
+  const result = await query(
+    'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING *',
+    [email, passwordHash, role]
   );
   return result.rows[0] as User;
+}
+
+export async function createStaffUser(email: string, passwordHash: string) {
+  return createUser(email, passwordHash, 'check-in-staff');
+}
+
+export async function deleteStaffUser(staffId: string) {
+  await query(
+    "DELETE FROM users WHERE id = $1 AND role = 'check-in-staff'",
+    [staffId]
+  );
+}
+
+export async function getAllStaff() {
+  const result = await query(
+    `SELECT u.id, u.email, u.created_at,
+            COALESCE(
+              json_agg(
+                json_build_object('id', e.id, 'name', e.name, 'date', e.date)
+              ) FILTER (WHERE e.id IS NOT NULL),
+              '[]'
+            ) AS events
+     FROM users u
+     LEFT JOIN staff_events se ON se.staff_id = u.id
+     LEFT JOIN events e ON e.id = se.event_id
+     WHERE u.role = 'check-in-staff' AND u.is_active = true
+     GROUP BY u.id, u.email, u.created_at
+     ORDER BY u.created_at DESC`
+  );
+  return result.rows as Array<{
+    id: string;
+    email: string;
+    created_at: Date;
+    events: Array<{ id: string; name: string; date: string }>;
+  }>;
+}
+
+// ===== STAFF EVENT QUERIES =====
+export async function getAssignedEvents(staffId: string) {
+  const result = await query(
+    `SELECT e.*,
+            COUNT(g.id)::int AS total_guests,
+            COUNT(CASE WHEN g.checked_in = true THEN 1 END)::int AS checked_in_count
+     FROM staff_events se
+     JOIN events e ON se.event_id = e.id
+     LEFT JOIN guests g ON g.event_id = e.id
+     WHERE se.staff_id = $1
+     GROUP BY e.id
+     ORDER BY e.date DESC`,
+    [staffId]
+  );
+  return result.rows as AssignedEvent[];
+}
+
+export async function isStaffAssignedToEvent(staffId: string, eventId: string) {
+  const result = await query(
+    'SELECT 1 FROM staff_events WHERE staff_id = $1 AND event_id = $2',
+    [staffId, eventId]
+  );
+  return result.rows.length > 0;
+}
+
+export async function assignEventToStaff(staffId: string, eventId: string) {
+  const result = await query(
+    `INSERT INTO staff_events (staff_id, event_id)
+     VALUES ($1, $2)
+     ON CONFLICT (staff_id, event_id) DO NOTHING
+     RETURNING *`,
+    [staffId, eventId]
+  );
+  return result.rows[0] as StaffEvent | undefined;
+}
+
+export async function removeEventFromStaff(staffId: string, eventId: string) {
+  await query(
+    'DELETE FROM staff_events WHERE staff_id = $1 AND event_id = $2',
+    [staffId, eventId]
+  );
+}
+
+export async function setStaffEvents(staffId: string, eventIds: string[]) {
+  await query('DELETE FROM staff_events WHERE staff_id = $1', [staffId]);
+  for (const eventId of eventIds) {
+    await assignEventToStaff(staffId, eventId);
+  }
+}
+
+export async function checkInGuestForEvent(code: string, eventId: string) {
+  const result = await query(
+    `SELECT g.id, g.name, g.invitation_code, g.checked_in, g.checked_in_at, e.name AS event_name
+     FROM guests g
+     JOIN events e ON g.event_id = e.id
+     WHERE g.invitation_code = $1 AND g.event_id = $2`,
+    [code, eventId]
+  );
+
+  if (result.rows.length === 0) {
+    return { found: false as const };
+  }
+
+  const guest = result.rows[0];
+
+  if (guest.checked_in) {
+    return {
+      found: true as const,
+      alreadyCheckedIn: true as const,
+      guest,
+    };
+  }
+
+  const updateResult = await query(
+    `UPDATE guests SET checked_in = TRUE, checked_in_at = NOW()
+     WHERE invitation_code = $1 AND event_id = $2
+     RETURNING id, name, invitation_code, checked_in, checked_in_at`,
+    [code, eventId]
+  );
+
+  return {
+    found: true as const,
+    alreadyCheckedIn: false as const,
+    guest: { ...updateResult.rows[0], event_name: guest.event_name },
+  };
+}
+
+export async function getEventCheckinStats(eventId: string) {
+  const statsResult = await query(
+    `SELECT COUNT(*)::int AS total_guests,
+            COUNT(CASE WHEN checked_in = true THEN 1 END)::int AS checked_in_count
+     FROM guests WHERE event_id = $1`,
+    [eventId]
+  );
+
+  const recentResult = await query(
+    `SELECT name, checked_in_at
+     FROM guests
+     WHERE event_id = $1 AND checked_in = true AND checked_in_at IS NOT NULL
+     ORDER BY checked_in_at DESC
+     LIMIT 10`,
+    [eventId]
+  );
+
+  return {
+    ...statsResult.rows[0],
+    recent_checkins: recentResult.rows as Array<{ name: string; checked_in_at: string }>,
+  };
 }
 
 // ===== CLIENT QUERIES =====

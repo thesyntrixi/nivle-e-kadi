@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = generateToken(user.id);
+    const token = generateToken(user.id, user.role ?? 'admin');
 
     const response = NextResponse.json(
       {
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
           user: {
             id: user.id,
             email: user.email,
+            role: user.role ?? 'admin',
           },
         },
       },

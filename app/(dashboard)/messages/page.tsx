@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { SendMessageForm, SendMessageData } from '@/components/forms/SendMessageForm';
 import { ChatList, Conversation, ChatFilter } from '@/components/dashboard/ChatList';
 import { ChatWindow } from '@/components/dashboard/ChatWindow';
+import { SendSingleGuestForm } from '@/components/messages/SendSingleGuestForm';
 
 function buildConversations(messages: MessageWithGuest[]): Conversation[] {
   const map = new Map<string, Conversation>();
@@ -286,7 +287,11 @@ function MessagesPageContent() {
         </div>
       )}
 
-      <div className="flex flex-1 min-h-0 border border-neutral-border rounded-none sm:rounded-card overflow-hidden bg-surface-card mx-0 sm:mx-4 lg:mx-8 sm:mb-4 lg:mb-8">
+      <div className="px-4 sm:px-6 lg:px-8 pt-4 shrink-0">
+        <SendSingleGuestForm onSent={fetchAllMessages} />
+      </div>
+
+      <div className="flex flex-1 min-h-0 border border-neutral-border rounded-none sm:rounded-card overflow-hidden bg-surface-card mx-0 sm:mx-4 lg:mx-8 sm:mb-4 lg:mb-8 mt-4">
         {/* Left panel — chat list */}
         <div
           className={`w-full md:w-[35%] lg:w-[30%] shrink-0 ${

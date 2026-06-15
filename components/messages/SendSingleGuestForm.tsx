@@ -132,6 +132,14 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
         return;
       }
 
+      if (data.guest_status) {
+        setGuests((prev) =>
+          prev.map((g) =>
+            g.id === guestId ? { ...g, status: data.guest_status } : g
+          )
+        );
+      }
+
       onSent?.();
     } catch {
       setError('Imeshindwa kutuma mwaliko. Jaribu tena.');
@@ -150,7 +158,7 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
         <div>
           <h3 className="text-h3 text-neutral-text">Tuma kwa Mtu Mmoja</h3>
           <p className="text-small text-neutral-muted mt-1">
-            Pakia kadi maalum na tuma SMS + WhatsApp kwa mgeni mmoja
+            Pakia kadi maalum na tuma SMS + WhatsApp kwa rekodi moja ya mgeni (Single au Double)
           </p>
         </div>
         <span className="text-neutral-muted text-lg ml-4">{expanded ? '▲' : '▼'}</span>

@@ -121,7 +121,7 @@ export async function setStaffEvents(staffId: string, eventIds: string[]) {
 
 export async function checkInGuestForEvent(code: string, eventId: string) {
   const result = await query(
-    `SELECT g.id, g.name, g.invitation_code, g.checked_in, g.checked_in_at, e.name AS event_name
+    `SELECT g.id, g.name, g.invitation_code, g.checked_in, g.checked_in_at, g.guest_type, e.name AS event_name
      FROM guests g
      JOIN events e ON g.event_id = e.id
      WHERE g.invitation_code = $1 AND g.event_id = $2`,
@@ -145,7 +145,7 @@ export async function checkInGuestForEvent(code: string, eventId: string) {
   const updateResult = await query(
     `UPDATE guests SET checked_in = TRUE, checked_in_at = NOW()
      WHERE invitation_code = $1 AND event_id = $2
-     RETURNING id, name, invitation_code, checked_in, checked_in_at`,
+       RETURNING id, name, invitation_code, checked_in, checked_in_at, guest_type`,
     [code, eventId]
   );
 
@@ -258,9 +258,17 @@ export async function getGuestsByEventId(eventId: string) {
 
 export async function createGuest(data: Omit<Guest, 'id' | 'created_at' | 'updated_at'>) {
   const result = await query(
-    `INSERT INTO guests (event_id, name, phone, email, invitation_code, status) 
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [data.event_id, data.name, data.phone, data.email, data.invitation_code, data.status]
+    `INSERT INTO guests (event_id, name, phone, email, invitation_code, status, guest_type)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [
+      data.event_id,
+      data.name,
+      data.phone,
+      data.email,
+      data.invitation_code,
+      data.status,
+      data.guest_type ?? 'single',
+    ]
   );
   return result.rows[0] as Guest;
 }

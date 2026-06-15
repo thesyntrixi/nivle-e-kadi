@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await query(
-      `SELECT g.id, g.name, g.invitation_code, g.checked_in, g.checked_in_at, e.name AS event_name
+      `SELECT g.id, g.name, g.invitation_code, g.checked_in, g.checked_in_at, g.guest_type, e.name AS event_name
        FROM guests g
        LEFT JOIN events e ON g.event_id = e.id
        WHERE g.invitation_code = $1`,
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const updateResult = await query(
       `UPDATE guests SET checked_in = TRUE, checked_in_at = NOW()
        WHERE invitation_code = $1
-       RETURNING id, name, invitation_code, checked_in, checked_in_at`,
+       RETURNING id, name, invitation_code, checked_in, checked_in_at, guest_type`,
       [code]
     );
 

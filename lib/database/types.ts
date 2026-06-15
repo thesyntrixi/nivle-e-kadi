@@ -40,6 +40,8 @@ export type Event = {
   updated_at: Date;
 };
 
+export type GuestType = 'single' | 'double';
+
 export type Guest = {
   id: string;
   event_id: string;
@@ -57,6 +59,7 @@ export type Guest = {
   checked_in_at?: Date | null;
   rsvp_status?: 'pending' | 'attending' | 'not_attending';
   rsvp_at?: Date | null;
+  guest_type?: GuestType;
   created_at: Date;
   updated_at: Date;
 };

@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
+import { GuestType } from '@/lib/database/types';
+import { getGuestTypeBadgeLabel, guestTypeBadgeClass } from '@/lib/guest-type';
 
 type CheckinResult = {
   success: boolean;
@@ -16,6 +18,7 @@ type CheckinResult = {
     name: string;
     event_name?: string;
     checked_in_at?: string;
+    guest_type?: GuestType;
   };
 };
 
@@ -39,6 +42,16 @@ function formatCheckinTime(iso?: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function GuestTypeResultBadge({ guestType }: { guestType?: GuestType }) {
+  return (
+    <span
+      className={`inline-flex px-3 py-1 rounded-full text-sm font-medium border ${guestTypeBadgeClass(guestType)}`}
+    >
+      {getGuestTypeBadgeLabel(guestType, 'checkin')}
+    </span>
+  );
 }
 
 interface StaffEventScannerProps {
@@ -234,6 +247,7 @@ export function StaffEventScanner({ eventId, onStatsUpdate }: StaffEventScannerP
           <p className="text-lg font-semibold text-neutral-text">
             {result.data?.name} ALIKWISHA fika saa {time}
           </p>
+          <GuestTypeResultBadge guestType={result.data?.guest_type} />
           <Button fullWidth onClick={handleConfirmNext}>
             Confirm / Scan Next
           </Button>
@@ -247,6 +261,7 @@ export function StaffEventScanner({ eventId, onStatsUpdate }: StaffEventScannerP
         <p className="text-lg font-semibold text-neutral-text">
           {result.data?.name} - Karibu! Amesajiliwa kikamilifu.
         </p>
+        <GuestTypeResultBadge guestType={result.data?.guest_type} />
         <Button fullWidth onClick={handleConfirmNext}>
           Confirm / Scan Next
         </Button>

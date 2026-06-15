@@ -11,7 +11,8 @@
     "db:test": "ts-node --project tsconfig.scripts.json scripts/test-db.ts",
     "db:add-checkin": "ts-node --project tsconfig.scripts.json scripts/add-checkin-columns.ts",
     "db:add-staff": "ts-node --project tsconfig.scripts.json scripts/add-staff-role.ts",
-    "db:add-rsvp": "ts-node --project tsconfig.scripts.json scripts/add-rsvp-columns.ts"
+    "db:add-rsvp": "ts-node --project tsconfig.scripts.json scripts/add-rsvp-columns.ts",
+    "db:add-guest-type": "ts-node --project tsconfig.scripts.json scripts/add-guest-type-column.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.0",

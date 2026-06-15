@@ -1,6 +1,8 @@
 import QRCode from 'qrcode';
 import { query } from '@/lib/db';
 import { Card } from '@/components/ui/Card';
+import { GuestType } from '@/lib/database/types';
+import { getGuestTypeBadgeLabel, guestTypeBadgeClass } from '@/lib/guest-type';
 
 interface InvitePageProps {
   params: { code: string };
@@ -19,7 +21,7 @@ function formatEventDateTime(date: Date | string, time: string | null): string {
 
 export default async function InvitePage({ params }: InvitePageProps) {
   const result = await query(
-    `SELECT g.id, g.name, g.invitation_code,
+    `SELECT g.id, g.name, g.invitation_code, g.guest_type,
             e.name AS event_name, e.date, e.time, e.venue
      FROM guests g
      JOIN events e ON g.event_id = e.id
@@ -58,6 +60,11 @@ export default async function InvitePage({ params }: InvitePageProps) {
             NIVLE E-Kadi
           </p>
           <h1 className="text-h1 text-neutral-text">Karibu, {guest.name}!</h1>
+          <span
+            className={`inline-flex mt-3 px-3 py-1 rounded-full text-sm font-medium border ${guestTypeBadgeClass(guest.guest_type as GuestType)}`}
+          >
+            {getGuestTypeBadgeLabel(guest.guest_type as GuestType, 'invite')}
+          </span>
         </div>
 
         <div className="space-y-2 text-left">

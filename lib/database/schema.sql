@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS guests (
   checked_in_at TIMESTAMPTZ,
   rsvp_status VARCHAR(20) DEFAULT 'pending' CHECK (rsvp_status IN ('pending', 'attending', 'not_attending')),
   rsvp_at TIMESTAMPTZ,
+  guest_type VARCHAR(10) DEFAULT 'single' CHECK (guest_type IN ('single', 'double')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

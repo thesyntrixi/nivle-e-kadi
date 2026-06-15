@@ -20,6 +20,7 @@ export function AddGuestManualForm({
     name: '',
     email: '',
     phone: '',
+    guest_type: 'single' as 'single' | 'double',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +59,7 @@ export function AddGuestManualForm({
           name: formData.name.trim(),
           email,
           phone,
+          guest_type: formData.guest_type,
         }),
       });
 
@@ -68,7 +70,7 @@ export function AddGuestManualForm({
       }
 
       setSuccess('Guest added successfully!');
-      setFormData({ name: '', email: '', phone: '' });
+      setFormData({ name: '', email: '', phone: '', guest_type: 'single' });
 
       setTimeout(() => {
         onSuccess?.();
@@ -111,6 +113,38 @@ export function AddGuestManualForm({
         disabled={loading}
         required
       />
+
+      <div className="space-y-2">
+        <p className="text-small font-medium uppercase tracking-wide text-neutral-muted">
+          Aina ya Mgeni
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="guest_type"
+              value="single"
+              checked={formData.guest_type === 'single'}
+              onChange={() => setFormData({ ...formData, guest_type: 'single' })}
+              disabled={loading}
+              className="text-primary"
+            />
+            <span className="text-sm text-neutral-text">Single (mtu 1)</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="guest_type"
+              value="double"
+              checked={formData.guest_type === 'double'}
+              onChange={() => setFormData({ ...formData, guest_type: 'double' })}
+              disabled={loading}
+              className="text-primary"
+            />
+            <span className="text-sm text-neutral-text">Double (watu 2)</span>
+          </label>
+        </div>
+      </div>
 
       {error && <Alert variant="error" message={error} />}
       {success && <Alert variant="success" message={success} />}

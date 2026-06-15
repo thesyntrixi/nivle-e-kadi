@@ -1,6 +1,8 @@
 // lib/services/sms.ts
 // Real NextSms SMS integration
 
+import { GuestType } from '@/lib/database/types';
+
 const NEXTSMS_API_URL = 'https://messaging-service.co.tz/api/sms/v1/text/single';
 
 const NEXTSMS_USERNAME = process.env.NEXTSMS_USERNAME || '';
@@ -21,6 +23,33 @@ function formatPhoneForNextSms(phone: string): string {
 }
 
 /**
+ * Personalize invitation message text based on guest type.
+ * Single guests keep singular Swahili; double guests use plural forms.
+ */
+export function personalizeGuestMessage(
+  message: string,
+  guestName: string,
+  guestType: GuestType = 'single'
+): string {
+  if (guestType === 'single') {
+    return message.replace(/\{name\}/gi, guestName);
+  }
+
+  const greetingName = `${guestName} na mwenzako`;
+  let result = message.replace(/\{name\}/gi, greetingName);
+
+  result = result
+    .replace(/umekaribishwa/gi, 'mmekaribishwa')
+    .replace(/Umekaribishwa/g, 'Mmekaribishwa')
+    .replace(/\bwewe\b/gi, 'ninyi')
+    .replace(/\bWewe\b/g, 'Ninyi');
+
+  result = result.replace(/^Habari\s+([^,]+),/i, `Habari ${greetingName},`);
+
+  return result;
+}
+
+/**
  * Send SMS via NextSms API
  * @param phone - Recipient phone number (e.g., +255712345678)
  * @param message - SMS message text
@@ -28,7 +57,8 @@ function formatPhoneForNextSms(phone: string): string {
  */
 export async function sendSMS(
   phone: string,
-  message: string
+  message: string,
+  options?: { guestName?: string; guestType?: GuestType }
 ): Promise<{
   success: boolean;
   externalId?: string;
@@ -64,11 +94,15 @@ export async function sendSMS(
 
     const formattedPhone = formatPhoneForNextSms(normalizedPhone);
     const reference = `nivle-${Date.now()}`;
+    const textMessage =
+      options?.guestName !== undefined
+        ? personalizeGuestMessage(message, options.guestName, options.guestType ?? 'single')
+        : message;
 
     const requestBody = {
       from: 'NivleDesign',
       to: formattedPhone,
-      text: message.substring(0, 160),
+      text: textMessage.substring(0, 160),
       reference,
     };
 

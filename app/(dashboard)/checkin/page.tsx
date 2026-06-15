@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Event } from '@/lib/database/types';
+import { Event, GuestType } from '@/lib/database/types';
+import { getGuestTypeBadgeLabel, guestTypeBadgeClass } from '@/lib/guest-type';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -23,6 +24,7 @@ type CheckinResult = {
     name: string;
     event_name?: string;
     checked_in_at?: string;
+    guest_type?: GuestType;
   };
 };
 
@@ -41,6 +43,16 @@ function formatCheckinTime(iso?: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function GuestTypeResultBadge({ guestType }: { guestType?: GuestType }) {
+  return (
+    <span
+      className={`inline-flex px-3 py-1 rounded-full text-sm font-medium border ${guestTypeBadgeClass(guestType)}`}
+    >
+      {getGuestTypeBadgeLabel(guestType, 'checkin')}
+    </span>
+  );
 }
 
 export default function CheckinPage() {
@@ -245,6 +257,7 @@ export default function CheckinPage() {
           {result.data?.event_name && (
             <p className="text-small text-neutral-muted">{result.data.event_name}</p>
           )}
+          <GuestTypeResultBadge guestType={result.data?.guest_type} />
           <Button fullWidth onClick={handleConfirmNext}>
             Confirm / Scan Next
           </Button>
@@ -261,6 +274,7 @@ export default function CheckinPage() {
         {result.data?.event_name && (
           <p className="text-small text-neutral-muted">{result.data.event_name}</p>
         )}
+        <GuestTypeResultBadge guestType={result.data?.guest_type} />
         <Button fullWidth onClick={handleConfirmNext}>
           Confirm / Scan Next
         </Button>

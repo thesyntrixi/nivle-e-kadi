@@ -1,6 +1,9 @@
 // lib/services/whatsapp.ts
 // Meta WhatsApp Cloud API integration
 
+import { GuestType } from '@/lib/database/types';
+import { personalizeGuestMessage } from '@/lib/services/sms';
+
 const WHATSAPP_API_VERSION = 'v21.0';
 
 export type SendWhatsAppResult = {
@@ -40,7 +43,8 @@ function formatPhoneForWhatsApp(phone: string): string {
  */
 export async function sendWhatsApp(
   phone: string,
-  message: string
+  message: string,
+  options?: { guestName?: string; guestType?: GuestType }
 ): Promise<SendWhatsAppResult> {
   if (!isConfigured()) {
     return { success: false, error: 'WhatsApp service is not configured' };
@@ -48,12 +52,16 @@ export async function sendWhatsApp(
 
   try {
     const formattedPhone = formatPhoneForWhatsApp(phone);
+    const textMessage =
+      options?.guestName !== undefined
+        ? personalizeGuestMessage(message, options.guestName, options.guestType ?? 'single')
+        : message;
 
     const requestBody = {
       messaging_product: 'whatsapp',
       to: formattedPhone,
       type: 'text',
-      text: { body: message.substring(0, 4096) },
+      text: { body: textMessage.substring(0, 4096) },
     };
 
     console.log('WhatsApp text request payload:', JSON.stringify(requestBody));
@@ -135,6 +143,7 @@ export async function sendWhatsAppInvitation(
   to: string,
   params: {
     guestName: string;
+    guestType?: GuestType;
     eventName: string;
     dateTime: string;
     venue: string;
@@ -143,6 +152,9 @@ export async function sendWhatsAppInvitation(
   }
 ) {
   const formattedPhone = formatPhoneForWhatsApp(to);
+  const guestType = params.guestType ?? 'single';
+  const displayName =
+    guestType === 'double' ? `${params.guestName} na mwenzako` : params.guestName;
 
   const requestBody = {
     messaging_product: 'whatsapp',
@@ -164,7 +176,7 @@ export async function sendWhatsAppInvitation(
         {
           type: 'body',
           parameters: [
-            { type: 'text', text: params.guestName },
+            { type: 'text', text: displayName },
             { type: 'text', text: params.eventName },
             { type: 'text', text: params.dateTime },
             { type: 'text', text: params.venue },

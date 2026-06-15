@@ -15,7 +15,7 @@ function getUserId(request: NextRequest): string | null {
 
 async function getOwnedGuest(userId: string, guestId: string) {
   const result = await query(
-    `SELECT g.id, g.event_id, g.name, g.phone
+    `SELECT g.id, g.event_id, g.name, g.phone, g.guest_type
      FROM guests g
      JOIN events e ON g.event_id = e.id
      JOIN clients c ON e.client_id = c.id
@@ -23,7 +23,7 @@ async function getOwnedGuest(userId: string, guestId: string) {
     [guestId, userId]
   );
   return result.rows[0] as
-    | { id: string; event_id: string; name: string; phone: string }
+    | { id: string; event_id: string; name: string; phone: string; guest_type: 'single' | 'double' }
     | undefined;
 }
 
@@ -86,8 +86,14 @@ export async function POST(request: NextRequest) {
 
       const sendResult =
         type === 'SMS'
-          ? await sendSMS(guest.phone, message)
-          : await sendWhatsApp(guest.phone, message);
+          ? await sendSMS(guest.phone, message, {
+              guestName: guest.name,
+              guestType: guest.guest_type ?? 'single',
+            })
+          : await sendWhatsApp(guest.phone, message, {
+              guestName: guest.name,
+              guestType: guest.guest_type ?? 'single',
+            });
 
       const status = sendResult.success ? 'Sent' : 'Failed';
 

@@ -306,6 +306,7 @@ export async function POST(request: NextRequest) {
           delivered_at: null,
           opened_at: null,
           status: 'Pending',
+          guest_type: 'single',
         });
         created++;
       } catch (insertError) {

@@ -2,7 +2,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Guest } from '@/lib/database/types';
+import { Guest, GuestType } from '@/lib/database/types';
+import { getGuestTypeBadgeLabel, guestTypeBadgeClass } from '@/lib/guest-type';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -24,6 +25,16 @@ interface GuestsTableProps {
   onRefresh: () => void;
   deletingId?: string | null;
   searchQuery?: string;
+}
+
+function GuestTypeBadge({ guestType }: { guestType?: GuestType }) {
+  return (
+    <span
+      className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${guestTypeBadgeClass(guestType)}`}
+    >
+      {getGuestTypeBadgeLabel(guestType)}
+    </span>
+  );
 }
 
 function StatusBadge({ status }: { status: Guest['status'] }) {
@@ -56,6 +67,7 @@ export function GuestsTable({
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editStatus, setEditStatus] = useState<Guest['status']>('Pending');
+  const [editGuestType, setEditGuestType] = useState<GuestType>('single');
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -76,6 +88,7 @@ export function GuestsTable({
     setEditPhone(guest.phone);
     setEditEmail(guest.email ?? '');
     setEditStatus(guest.status);
+    setEditGuestType(guest.guest_type ?? 'single');
     setEditError('');
   }
 
@@ -94,6 +107,7 @@ export function GuestsTable({
           phone: editPhone.trim(),
           email: editEmail.trim() || null,
           status: editStatus,
+          guest_type: editGuestType,
         }),
       });
 
@@ -152,6 +166,7 @@ export function GuestsTable({
             <thead>
               <tr className="border-b border-neutral-border">
                 <th className="px-4 py-3 text-small font-medium uppercase tracking-wide text-neutral-muted">Name</th>
+                <th className="px-4 py-3 text-small font-medium uppercase tracking-wide text-neutral-muted">Type</th>
                 <th className="px-4 py-3 text-small font-medium uppercase tracking-wide text-neutral-muted">Phone</th>
                 <th className="px-4 py-3 text-small font-medium uppercase tracking-wide text-neutral-muted">Email</th>
                 <th className="px-4 py-3 text-small font-medium uppercase tracking-wide text-neutral-muted">Code</th>
@@ -166,6 +181,7 @@ export function GuestsTable({
                   className="border-b border-neutral-border/50 last:border-0 hover:bg-surface-hover/50 transition-colors"
                 >
                   <td className="px-4 py-4 text-sm font-medium text-neutral-text">{guest.name}</td>
+                  <td className="px-4 py-4"><GuestTypeBadge guestType={guest.guest_type} /></td>
                   <td className="px-4 py-4 text-sm text-neutral-muted">{guest.phone}</td>
                   <td className="px-4 py-4 text-sm text-neutral-muted">{guest.email ?? '—'}</td>
                   <td className="px-4 py-4 text-sm font-mono text-primary">{guest.invitation_code}</td>
@@ -201,7 +217,10 @@ export function GuestsTable({
           <Card key={guest.id} padding="md">
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-h3 text-neutral-text">{guest.name}</h3>
+                <div className="space-y-2">
+                  <h3 className="text-h3 text-neutral-text">{guest.name}</h3>
+                  <GuestTypeBadge guestType={guest.guest_type} />
+                </div>
                 <StatusBadge status={guest.status} />
               </div>
               <div className="space-y-1 text-small text-neutral-muted">
@@ -290,6 +309,37 @@ export function GuestsTable({
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-2">
+                <p className="text-small font-medium uppercase tracking-wide text-neutral-muted">
+                  Aina ya Mgeni
+                </p>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="edit_guest_type"
+                      value="single"
+                      checked={editGuestType === 'single'}
+                      onChange={() => setEditGuestType('single')}
+                      disabled={saving}
+                      className="text-primary"
+                    />
+                    <span className="text-sm text-neutral-text">Single (mtu 1)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="edit_guest_type"
+                      value="double"
+                      checked={editGuestType === 'double'}
+                      onChange={() => setEditGuestType('double')}
+                      disabled={saving}
+                      className="text-primary"
+                    />
+                    <span className="text-sm text-neutral-text">Double (watu 2)</span>
+                  </label>
+                </div>
               </div>
             </div>
 

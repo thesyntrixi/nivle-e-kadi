@@ -92,6 +92,7 @@ function validateGuestBody(body: {
   name?: string;
   email?: string;
   phone?: string;
+  guest_type?: string;
 }): string | null {
   const eventId = body.event_id?.trim();
   const name = body.name?.trim();
@@ -118,6 +119,11 @@ function validateGuestBody(body: {
   }
   if (!PHONE_REGEX.test(phone)) {
     return 'Phone must start with + (e.g., +255712345678)';
+  }
+
+  const guestType = body.guest_type?.trim();
+  if (guestType && guestType !== 'single' && guestType !== 'double') {
+    return 'Guest type must be single or double';
   }
 
   return null;
@@ -185,6 +191,8 @@ export async function POST(request: NextRequest) {
     const name = body.name.trim();
     const email = body.email.trim();
     const phone = body.phone.trim();
+    const guestType =
+      body.guest_type === 'double' ? 'double' : ('single' as const);
 
     const event = await getOwnedEvent(userId, eventId);
     if (!event) {
@@ -220,6 +228,7 @@ export async function POST(request: NextRequest) {
       delivered_at: null,
       opened_at: null,
       status: 'Pending',
+      guest_type: guestType,
     });
 
     await updateEventGuestCount(eventId);

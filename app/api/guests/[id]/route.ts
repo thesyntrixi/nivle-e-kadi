@@ -35,6 +35,7 @@ function validateGuestUpdate(body: {
   phone?: string;
   email?: string | null;
   status?: string;
+  guest_type?: string;
 }): string | null {
   if (body.name !== undefined) {
     const name = body.name.trim();
@@ -65,6 +66,13 @@ function validateGuestUpdate(body: {
     !GUEST_STATUSES.includes(body.status as (typeof GUEST_STATUSES)[number])
   ) {
     return 'Invalid status';
+  }
+  if (
+    body.guest_type !== undefined &&
+    body.guest_type !== 'single' &&
+    body.guest_type !== 'double'
+  ) {
+    return 'Invalid guest type';
   }
   return null;
 }
@@ -140,13 +148,14 @@ export async function PUT(
           : null
         : existing.email;
     const status = body.status ?? existing.status;
+    const guestType = body.guest_type ?? existing.guest_type ?? 'single';
 
     const result = await query(
       `UPDATE guests
-       SET name = $2, phone = $3, email = $4, status = $5, updated_at = NOW()
+       SET name = $2, phone = $3, email = $4, status = $5, guest_type = $6, updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
-      [params.id, name, phone, email, status]
+      [params.id, name, phone, email, status, guestType]
     );
 
     return NextResponse.json({ success: true, data: result.rows[0] });

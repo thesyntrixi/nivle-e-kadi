@@ -23,28 +23,47 @@ function formatPhoneForNextSms(phone: string): string {
 }
 
 /**
+ * Format guest name with Single/Double status label (name used as-is from admin).
+ */
+export function formatGuestDisplayName(
+  guestName: string,
+  guestType: GuestType = 'single'
+): string {
+  if (guestType === 'double') {
+    return `${guestName} (Double - watu 2)`;
+  }
+  return `${guestName} (Single)`;
+}
+
+function applyDoublePluralForms(message: string): string {
+  return message
+    .replace(/Umekaribishwa/g, 'Mmekaribishwa')
+    .replace(/umekaribishwa/g, 'mmekaribishwa')
+    .replace(/Tunakukaribisha/g, 'Tunawakaribisha')
+    .replace(/tunakukaribisha/g, 'tunawakaribisha')
+    .replace(/tungependa uwepo/gi, 'tungependa muwepo')
+    .replace(/Tungependa uwepo/g, 'Tungependa muwepo')
+    .replace(/\bUwepo\b/g, 'Muwepo')
+    .replace(/\buwepo\b/g, 'muwepo')
+    .replace(/\bWewe\b/g, 'Ninyi')
+    .replace(/\bwewe\b/g, 'ninyi');
+}
+
+/**
  * Personalize invitation message text based on guest type.
- * Single guests keep singular Swahili; double guests use plural forms.
+ * Name is used exactly as entered; Single/Double label appended after name.
  */
 export function personalizeGuestMessage(
   message: string,
   guestName: string,
   guestType: GuestType = 'single'
 ): string {
-  if (guestType === 'single') {
-    return message.replace(/\{name\}/gi, guestName);
+  const labeledName = formatGuestDisplayName(guestName, guestType);
+  let result = message.replace(/\{name\}/gi, labeledName);
+
+  if (guestType === 'double') {
+    result = applyDoublePluralForms(result);
   }
-
-  const greetingName = `${guestName} na mwenzako`;
-  let result = message.replace(/\{name\}/gi, greetingName);
-
-  result = result
-    .replace(/umekaribishwa/gi, 'mmekaribishwa')
-    .replace(/Umekaribishwa/g, 'Mmekaribishwa')
-    .replace(/\bwewe\b/gi, 'ninyi')
-    .replace(/\bWewe\b/g, 'Ninyi');
-
-  result = result.replace(/^Habari\s+([^,]+),/i, `Habari ${greetingName},`);
 
   return result;
 }

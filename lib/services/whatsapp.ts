@@ -2,7 +2,7 @@
 // Meta WhatsApp Cloud API integration
 
 import { GuestType } from '@/lib/database/types';
-import { personalizeGuestMessage } from '@/lib/services/sms';
+import { formatGuestDisplayName, personalizeGuestMessage } from '@/lib/services/sms';
 
 const WHATSAPP_API_VERSION = 'v21.0';
 
@@ -153,8 +153,7 @@ export async function sendWhatsAppInvitation(
 ) {
   const formattedPhone = formatPhoneForWhatsApp(to);
   const guestType = params.guestType ?? 'single';
-  const displayName =
-    guestType === 'double' ? `${params.guestName} na mwenzako` : params.guestName;
+  const displayName = formatGuestDisplayName(params.guestName, guestType);
 
   const requestBody = {
     messaging_product: 'whatsapp',

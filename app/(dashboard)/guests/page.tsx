@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { GuestsTable, GuestsTableLoading } from '@/components/dashboard/GuestsTable';
 import { AddGuestManualForm } from '@/components/forms/AddGuestManualForm';
+import { BulkImportGuestsForm } from '@/components/forms/BulkImportGuestsForm';
 
 export default function GuestsPage() {
   return (
@@ -33,6 +34,7 @@ function GuestsPageContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddGuestModal, setShowAddGuestModal] = useState(false);
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
@@ -135,6 +137,13 @@ function GuestsPageContent() {
             >
               + Add Guest
             </Button>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setShowBulkImportModal(true)}
+            >
+              Bulk Import (Excel/CSV)
+            </Button>
             <Link href={`/guests/${selectedEventId}`}>
               <Button className="w-full sm:w-auto">+ Upload Guest List</Button>
             </Link>
@@ -233,6 +242,42 @@ function GuestsPageContent() {
             </div>
           )}
         </>
+      )}
+
+      {showBulkImportModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bulk import guests"
+          onClick={() => setShowBulkImportModal(false)}
+        >
+          <Card
+            padding="lg"
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-h3 text-neutral-text">Bulk Import Guests</h3>
+              <button
+                type="button"
+                onClick={() => setShowBulkImportModal(false)}
+                className="text-neutral-muted hover:text-neutral-text text-xl leading-none"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <BulkImportGuestsForm
+              events={events.map((e) => ({ id: e.id, name: e.name }))}
+              defaultEventId={selectedEventId}
+              onSuccess={() => {
+                setSuccessMessage('Bulk import completed successfully!');
+                fetchGuests();
+              }}
+            />
+          </Card>
+        </div>
       )}
 
       {showAddGuestModal && selectedEventId && (

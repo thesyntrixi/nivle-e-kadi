@@ -2,7 +2,7 @@
 // Common database query functions
 
 import { query } from '../db';
-import { User, Client, Event, Guest, AssignedEvent, StaffEvent } from './types';
+import { User, Client, Event, Guest, GuestType, AssignedEvent, StaffEvent } from './types';
 
 // ===== USER QUERIES =====
 export async function getUserByEmail(email: string) {
@@ -248,6 +248,125 @@ export async function createEvent(data: Omit<Event, 'id' | 'created_at' | 'updat
 }
 
 // ===== GUEST QUERIES =====
+
+export function getInvitationCodePrefix(eventType: Event['type']): string {
+  const prefixes: Record<Event['type'], string> = {
+    Wedding: 'WED',
+    Birthday: 'BDA',
+    Conference: 'CON',
+    Corporate: 'COR',
+    Other: 'EVT',
+  };
+  return prefixes[eventType] || 'EVT';
+}
+
+export async function generateUniqueInvitationCode(
+  eventId: string,
+  eventType: Event['type'],
+  sequence: number
+): Promise<string> {
+  const prefix = getInvitationCodePrefix(eventType);
+  let attempt = sequence;
+
+  for (let i = 0; i < 100; i++) {
+    const code = `${prefix}-${String(attempt).padStart(5, '0')}`;
+    const existing = await query(
+      'SELECT id FROM guests WHERE invitation_code = $1',
+      [code]
+    );
+    if (existing.rows.length === 0) {
+      return code;
+    }
+    attempt++;
+  }
+
+  const fallback = `${prefix}-${eventId.slice(0, 4).toUpperCase()}-${Date.now().toString(36)}`;
+  return fallback.slice(0, 20);
+}
+
+export function normalizeBulkImportPhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return null;
+
+  if (digits.startsWith('0') && digits.length === 10) {
+    return `255${digits.slice(1)}`;
+  }
+
+  if (digits.startsWith('255') && digits.length === 12) {
+    return digits;
+  }
+
+  return null;
+}
+
+export function normalizePhoneForComparison(phone: string): string {
+  const normalized = normalizeBulkImportPhone(phone);
+  if (normalized) return normalized;
+  return phone.replace(/\D/g, '');
+}
+
+export async function getEventGuestPhones(eventId: string): Promise<Set<string>> {
+  const result = await query('SELECT phone FROM guests WHERE event_id = $1', [eventId]);
+  const phones = new Set<string>();
+  for (const row of result.rows) {
+    phones.add(normalizePhoneForComparison(row.phone as string));
+  }
+  return phones;
+}
+
+export type BulkGuestInsert = {
+  event_id: string;
+  name: string;
+  phone: string;
+  guest_type: GuestType;
+  invitation_code: string;
+};
+
+export async function bulkCreateGuests(guests: BulkGuestInsert[]): Promise<number> {
+  if (guests.length === 0) return 0;
+
+  const BATCH_SIZE = 100;
+  let inserted = 0;
+
+  for (let i = 0; i < guests.length; i += BATCH_SIZE) {
+    const batch = guests.slice(i, i + BATCH_SIZE);
+    const values: unknown[] = [];
+    const placeholders = batch
+      .map((guest, idx) => {
+        const base = idx * 7;
+        values.push(
+          guest.event_id,
+          guest.name,
+          guest.phone,
+          null,
+          guest.invitation_code,
+          'Pending',
+          guest.guest_type
+        );
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7})`;
+      })
+      .join(', ');
+
+    await query(
+      `INSERT INTO guests (event_id, name, phone, email, invitation_code, status, guest_type)
+       VALUES ${placeholders}`,
+      values
+    );
+    inserted += batch.length;
+  }
+
+  return inserted;
+}
+
+export async function updateEventGuestCount(eventId: string): Promise<void> {
+  await query(
+    `UPDATE events SET guest_count = (
+       SELECT COUNT(*)::int FROM guests WHERE event_id = $1
+     ), updated_at = NOW() WHERE id = $1`,
+    [eventId]
+  );
+}
+
 export async function getGuestsByEventId(eventId: string) {
   const result = await query(
     'SELECT * FROM guests WHERE event_id = $1 ORDER BY created_at DESC',

@@ -71,6 +71,10 @@ function MessagesPageContent() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [bulkSendSummary, setBulkSendSummary] = useState<{
+    sms: string;
+    whatsapp: string;
+  } | null>(null);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(!!guestFromUrl);
 
@@ -252,8 +256,7 @@ function MessagesPageContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: data.type,
-          recipient_ids: data.recipientIds,
+          event_id: data.eventId,
           message: data.message,
         }),
       });
@@ -261,12 +264,20 @@ function MessagesPageContent() {
       const result = await response.json();
 
       if (!result.success) {
+        const smsErrors = result.data?.sms_errors?.join(', ');
         throw new Error(
-          result.error || result.data?.errors?.join(', ') || 'Failed to send message'
+          result.error || smsErrors || 'Failed to send message'
         );
       }
 
-      setSuccess(result.message || `Sent ${result.data.created} message(s)`);
+      const d = result.data;
+      setBulkSendSummary({
+        sms: `SMS: ${d.sms_sent}/${d.total} zimetumwa ✅`,
+        whatsapp: `WhatsApp: ${d.whatsapp_sent}/${d.total} zimetumwa${
+          d.whatsapp_outside_24h > 0 ? ' (wengine nje ya muda wa masaa 24)' : ''
+        } ℹ️`,
+      });
+      setSuccess('');
       setShowBulkModal(false);
       await fetchAllMessages();
     } catch (err) {
@@ -280,8 +291,14 @@ function MessagesPageContent() {
 
   return (
     <div className="-mx-4 sm:-mx-6 lg:-mx-8 -my-6 lg:-my-8 h-[calc(100vh-4rem)] flex flex-col">
-      {(error || success) && (
+      {(error || success || bulkSendSummary) && (
         <div className="px-4 sm:px-6 lg:px-8 pt-4 shrink-0 space-y-2">
+          {bulkSendSummary && (
+            <>
+              <Alert variant="success" message={bulkSendSummary.sms} />
+              <Alert variant="info" message={bulkSendSummary.whatsapp} />
+            </>
+          )}
           {success && <Alert variant="success" message={success} />}
           {error && <Alert variant="error" message={error} />}
         </div>
@@ -306,7 +323,10 @@ function MessagesPageContent() {
             filter={filter}
             onFilterChange={setFilter}
             isLoading={loadingList}
-            onBulkSms={() => setShowBulkModal(true)}
+            onBulkSms={() => {
+              setBulkSendSummary(null);
+              setShowBulkModal(true);
+            }}
             className="h-full"
           />
         </div>
@@ -328,7 +348,10 @@ function MessagesPageContent() {
             isLoadingChat={loadingChat}
             isSending={sending}
             onBack={handleBackToList}
-            onBulkSms={() => setShowBulkModal(true)}
+            onBulkSms={() => {
+              setBulkSendSummary(null);
+              setShowBulkModal(true);
+            }}
           />
         </div>
       </div>
@@ -357,11 +380,7 @@ function MessagesPageContent() {
                 ×
               </button>
             </div>
-            <SendMessageForm
-              onSubmit={handleBulkSend}
-              isLoading={sending}
-              defaultType="SMS"
-            />
+            <SendMessageForm onSubmit={handleBulkSend} isLoading={sending} />
             <div className="mt-4">
               <Button
                 variant="ghost"

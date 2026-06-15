@@ -55,6 +55,8 @@ export type Guest = {
   status: 'Pending' | 'Sent' | 'Delivered' | 'Opened' | 'Failed';
   checked_in?: boolean;
   checked_in_at?: Date | null;
+  rsvp_status?: 'pending' | 'attending' | 'not_attending';
+  rsvp_at?: Date | null;
   created_at: Date;
   updated_at: Date;
 };

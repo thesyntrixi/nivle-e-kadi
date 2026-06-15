@@ -273,6 +273,39 @@ export async function updateGuestStatus(guestId: string, status: Guest['status']
   return result.rows[0] as Guest;
 }
 
+export function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  return digits.slice(-9);
+}
+
+export async function getGuestByPhone(phone: string) {
+  const suffix = normalizePhone(phone);
+  if (suffix.length < 9) {
+    return undefined;
+  }
+
+  const result = await query(
+    `SELECT * FROM guests
+     WHERE RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 9) = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [suffix]
+  );
+  return result.rows[0] as Guest | undefined;
+}
+
+export async function updateGuestRsvp(
+  guestId: string,
+  rsvpStatus: 'attending' | 'not_attending'
+) {
+  const result = await query(
+    `UPDATE guests SET rsvp_status = $1, rsvp_at = NOW(), updated_at = NOW()
+     WHERE id = $2 RETURNING *`,
+    [rsvpStatus, guestId]
+  );
+  return result.rows[0] as Guest;
+}
+
 // ===== ANALYTICS QUERIES =====
 export async function getEventStats(eventId: string) {
   const result = await query(

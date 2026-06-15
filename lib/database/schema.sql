@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS guests (
   status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Sent', 'Delivered', 'Opened', 'Failed')),
   checked_in BOOLEAN DEFAULT FALSE,
   checked_in_at TIMESTAMPTZ,
+  rsvp_status VARCHAR(20) DEFAULT 'pending' CHECK (rsvp_status IN ('pending', 'attending', 'not_attending')),
+  rsvp_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -9,6 +9,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { EventForm, EventFormData } from '@/components/forms/EventForm';
 import { EventWithClient } from '@/components/dashboard/EventsTable';
+import { SendInvitationsButton } from '@/components/events/SendInvitationsButton';
 
 interface EditEventPageProps {
   params: { id: string };
@@ -176,6 +177,18 @@ export default function EditEventPage({ params }: EditEventPageProps) {
       {error && (
         <Alert variant="error" title="Something went wrong" message={error} />
       )}
+
+      <Card padding="lg" className="border border-primary/20">
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-h3 text-neutral-text">Tuma Mialiko</h3>
+            <p className="text-small text-neutral-muted mt-1">
+              Tuma SMS na WhatsApp kwa wageni wote wenye status Pending (Double kwanza, kisha Single)
+            </p>
+          </div>
+          <SendInvitationsButton eventId={params.id} />
+        </div>
+      </Card>
 
       <Card padding="lg">
         <EventForm

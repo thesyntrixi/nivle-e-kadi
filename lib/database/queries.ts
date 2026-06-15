@@ -375,6 +375,72 @@ export async function getGuestsByEventId(eventId: string) {
   return result.rows as Guest[];
 }
 
+export async function getGuestsToSend(
+  eventId: string,
+  guestType: GuestType,
+  limit: number,
+  offset: number = 0
+) {
+  const result = await query(
+    `SELECT * FROM guests
+     WHERE event_id = $1 AND guest_type = $2 AND status = 'Pending'
+     ORDER BY id ASC
+     LIMIT $3 OFFSET $4`,
+    [eventId, guestType, limit, offset]
+  );
+  return result.rows as Guest[];
+}
+
+export async function getPendingCounts(eventId: string) {
+  const result = await query(
+    `SELECT guest_type, COUNT(*)::int AS count
+     FROM guests
+     WHERE event_id = $1 AND status = 'Pending'
+     GROUP BY guest_type`,
+    [eventId]
+  );
+
+  const counts = { single: 0, double: 0 };
+  for (const row of result.rows) {
+    if (row.guest_type === 'double') counts.double = row.count;
+    if (row.guest_type === 'single') counts.single = row.count;
+  }
+  return counts;
+}
+
+export async function getEventCardImageUrl(eventId: string): Promise<string | null> {
+  const eventResult = await query(
+    'SELECT card_template_url FROM events WHERE id = $1',
+    [eventId]
+  );
+  if (eventResult.rows[0]?.card_template_url) {
+    return eventResult.rows[0].card_template_url as string;
+  }
+
+  const cardResult = await query(
+    `SELECT file_url FROM card_templates
+     WHERE event_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [eventId]
+  );
+  return (cardResult.rows[0]?.file_url as string) ?? null;
+}
+
+export async function markGuestSent(guestId: string, success: boolean) {
+  const status = success ? 'Sent' : 'Failed';
+  const result = await query(
+    `UPDATE guests
+     SET status = $2,
+         sent_at = CASE WHEN $3 THEN NOW() ELSE sent_at END,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [guestId, status, success]
+  );
+  return result.rows[0] as Guest;
+}
+
 export async function createGuest(data: Omit<Guest, 'id' | 'created_at' | 'updated_at'>) {
   const result = await query(
     `INSERT INTO guests (event_id, name, phone, email, invitation_code, status, guest_type)

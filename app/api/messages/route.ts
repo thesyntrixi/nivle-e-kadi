@@ -66,8 +66,8 @@ export async function GET(request: NextRequest) {
     }
 
     sql += guestId
-      ? ' ORDER BY m.created_at ASC'
-      : ' ORDER BY m.created_at DESC';
+      ? ' ORDER BY COALESCE(m.sent_at, m.created_at) ASC'
+      : ' ORDER BY COALESCE(m.sent_at, m.created_at) DESC';
 
     const result = await query(sql, params);
 

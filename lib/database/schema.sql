@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS messages (
   guest_id UUID NOT NULL REFERENCES guests(id) ON DELETE CASCADE,
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   message_type VARCHAR(50) NOT NULL CHECK (message_type IN ('WhatsApp', 'SMS')),
+  direction VARCHAR(10) NOT NULL DEFAULT 'outbound' CHECK (direction IN ('inbound', 'outbound')),
   content TEXT NOT NULL,
   status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Sent', 'Delivered', 'Failed')),
   external_message_id VARCHAR(255),

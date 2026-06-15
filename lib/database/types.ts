@@ -69,6 +69,7 @@ export type Message = {
   guest_id: string;
   event_id: string;
   message_type: 'WhatsApp' | 'SMS';
+  direction?: 'inbound' | 'outbound';
   content: string;
   status: 'Pending' | 'Sent' | 'Delivered' | 'Failed';
   external_message_id: string | null;

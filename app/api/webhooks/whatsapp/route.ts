@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { query } from '@/lib/db';
 import { getGuestByPhone, updateGuestRsvp } from '@/lib/database/queries';
 
 type RsvpStatus = 'attending' | 'not_attending';
@@ -17,6 +18,13 @@ function parseRsvpFromButton(title?: string, id?: string): RsvpStatus | null {
   }
 
   return null;
+}
+
+function parseWebhookTimestamp(timestamp?: string): Date {
+  if (!timestamp) return new Date();
+  const seconds = Number(timestamp);
+  if (!Number.isFinite(seconds) || seconds <= 0) return new Date();
+  return new Date(seconds * 1000);
 }
 
 export async function GET(request: NextRequest) {
@@ -91,6 +99,37 @@ export async function POST(request: NextRequest) {
             guestName: guest.name,
             phone: from,
             rsvpStatus,
+          });
+        }
+
+        for (const message of messages) {
+          if (message?.type !== 'text') continue;
+
+          const from = message.from as string | undefined;
+          const textBody = message.text?.body as string | undefined;
+          const externalId = message.id as string | undefined;
+
+          if (!from || !textBody?.trim()) continue;
+
+          const guest = await getGuestByPhone(from);
+          if (!guest) {
+            console.log('WhatsApp inbound: no guest found for phone', { from });
+            continue;
+          }
+
+          const sentAt = parseWebhookTimestamp(message.timestamp as string | undefined);
+
+          await query(
+            `INSERT INTO messages
+               (guest_id, event_id, message_type, direction, content, status, external_message_id, sent_at)
+             VALUES ($1, $2, 'WhatsApp', 'inbound', $3, 'Delivered', $4, $5)`,
+            [guest.id, guest.event_id, textBody.trim(), externalId ?? null, sentAt]
+          );
+
+          console.log('WhatsApp inbound message recorded', {
+            guestId: guest.id,
+            guestName: guest.name,
+            phone: from,
           });
         }
       }

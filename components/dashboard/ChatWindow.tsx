@@ -231,7 +231,7 @@ export function ChatWindow({
               </div>
               <div className="space-y-2">
                 {group.messages.map((msg) => {
-                  const isSent = true; // All stored messages are outbound from dashboard
+                  const isSent = (msg.direction ?? 'outbound') === 'outbound';
                   return (
                     <div
                       key={msg.id}

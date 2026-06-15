@@ -73,6 +73,18 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
+          const currentRsvp = guest.rsvp_status ?? 'pending';
+          if (currentRsvp !== 'pending') {
+            console.log('WhatsApp RSVP: ignored duplicate RSVP response', {
+              guestId: guest.id,
+              guestName: guest.name,
+              phone: from,
+              existingRsvp: currentRsvp,
+              attemptedRsvp: rsvpStatus,
+            });
+            continue;
+          }
+
           await updateGuestRsvp(guest.id, rsvpStatus);
           console.log('WhatsApp RSVP recorded', {
             guestId: guest.id,

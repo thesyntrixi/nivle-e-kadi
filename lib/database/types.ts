@@ -6,6 +6,8 @@ export type User = {
   id: string;
   email: string;
   password_hash: string;
+  name: string | null;
+  phone: string | null;
   role: UserRole;
   is_active: boolean;
   created_at: Date;

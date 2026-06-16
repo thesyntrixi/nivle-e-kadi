@@ -13,6 +13,7 @@ const adminOnlyPaths = [
   '/cards',
   '/guests',
   '/checkin',
+  '/settings',
   '/staff',
 ];
 

@@ -20,10 +20,36 @@ export async function getUserWithRole(email: string) {
 
 export async function getUserById(userId: string) {
   const result = await query(
-    'SELECT id, email, role, is_active, created_at, updated_at FROM users WHERE id = $1',
+    'SELECT id, email, name, phone, role, is_active, created_at, updated_at FROM users WHERE id = $1',
     [userId]
   );
-  return result.rows[0] as Pick<User, 'id' | 'email' | 'role' | 'is_active' | 'created_at' | 'updated_at'> | undefined;
+  return result.rows[0] as Pick<User, 'id' | 'email' | 'name' | 'phone' | 'role' | 'is_active' | 'created_at' | 'updated_at'> | undefined;
+}
+
+export async function getUserByIdWithPassword(userId: string) {
+  const result = await query('SELECT * FROM users WHERE id = $1', [userId]);
+  return result.rows[0] as User | undefined;
+}
+
+export async function updateUserProfile(
+  userId: string,
+  data: { name: string | null; email: string; phone: string | null }
+) {
+  const result = await query(
+    `UPDATE users
+     SET name = $2, email = $3, phone = $4, updated_at = NOW()
+     WHERE id = $1
+     RETURNING id, email, name, phone, role, is_active, created_at, updated_at`,
+    [userId, data.name, data.email, data.phone]
+  );
+  return result.rows[0] as Pick<User, 'id' | 'email' | 'name' | 'phone' | 'role' | 'is_active' | 'created_at' | 'updated_at'>;
+}
+
+export async function updateUserPassword(userId: string, passwordHash: string) {
+  await query(
+    'UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1',
+    [userId, passwordHash]
+  );
 }
 
 export async function createUser(email: string, passwordHash: string, role: User['role'] = 'admin') {

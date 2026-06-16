@@ -7,7 +7,7 @@ export const navItems = [
   { href: "/cards", label: "Cards", icon: "cards" },
   { href: "/guests", label: "Guests", icon: "guests" },
   { href: "/checkin", label: "Check-in", icon: "checkin" },
-  { href: "/staff", label: "Staff", icon: "staff" },
+  { href: "/settings", label: "Settings", icon: "settings" },
 ] as const;
 
 export const staffNavItems = [
@@ -25,6 +25,7 @@ export const pageMeta: Record<string, { title: string; subtitle: string }> = {
   "/events": { title: "Events", subtitle: "Create and manage events" },
   "/cards": { title: "Cards", subtitle: "Design and upload invitation cards" },
   "/guests": { title: "Guests", subtitle: "Manage guest lists and invitations" },
-  "/staff": { title: "Staff", subtitle: "Manage check-in staff and event assignments" },
   "/check-in-staff": { title: "Check-in", subtitle: "Select an event to check in guests" },
+  "/settings": { title: "Settings", subtitle: "Manage your account, security, and staff" },
+  "/staff": { title: "Settings", subtitle: "Manage your account, security, and staff" },
 };

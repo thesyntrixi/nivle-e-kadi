@@ -35,6 +35,32 @@ async function inboundMessageExists(externalId: string): Promise<boolean> {
   return result.rows.length > 0;
 }
 
+async function logPhoneMatchingDebug(rawFrom: string) {
+  console.log('WhatsApp inbound: Meta raw from phone (exact, unchanged):', rawFrom);
+  console.log('WhatsApp inbound: Meta raw from phone (JSON):', JSON.stringify(rawFrom));
+
+  const guestPhonesResult = await query(
+    'SELECT phone FROM guests ORDER BY created_at DESC LIMIT 20'
+  );
+  console.log('WhatsApp inbound: sample guest phones in DB (limit 20):', {
+    count: guestPhonesResult.rows.length,
+    phones: guestPhonesResult.rows.map((row: { phone: string }) => row.phone),
+  });
+
+  console.log('WhatsApp inbound: getGuestByPhone input:', rawFrom);
+  const guest = await getGuestByPhone(rawFrom);
+  console.log('WhatsApp inbound: getGuestByPhone result:', guest
+    ? {
+        id: guest.id,
+        name: guest.name,
+        phone: guest.phone,
+        event_id: guest.event_id,
+      }
+    : null);
+
+  return guest;
+}
+
 async function handleInboundTextMessage(message: Record<string, unknown>) {
   const from = message.from as string | undefined;
   const textBody = (message.text as { body?: string } | undefined)?.body;
@@ -42,7 +68,7 @@ async function handleInboundTextMessage(message: Record<string, unknown>) {
   const messageType = message.type as string | undefined;
 
   console.log('WhatsApp inbound: processing text message', {
-    from,
+    rawFromExact: from,
     messageType,
     externalId,
     hasBody: Boolean(textBody?.trim()),
@@ -63,7 +89,7 @@ async function handleInboundTextMessage(message: Record<string, unknown>) {
     return;
   }
 
-  const guest = await getGuestByPhone(from);
+  const guest = await logPhoneMatchingDebug(from);
   if (!guest) {
     console.log('WhatsApp inbound: no guest found for phone', { from, textPreview: textBody.trim().slice(0, 80) });
     return;

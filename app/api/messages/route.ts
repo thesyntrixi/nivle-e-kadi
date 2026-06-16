@@ -71,6 +71,18 @@ export async function GET(request: NextRequest) {
 
     const result = await query(sql, params);
 
+    console.log('GET /api/messages:', {
+      userId,
+      guestId: guestId ?? null,
+      rowCount: result.rows.length,
+      sample: result.rows.slice(0, 3).map((row: { id: string; guest_id: string; message_type: string; direction?: string }) => ({
+        id: row.id,
+        guest_id: row.guest_id,
+        message_type: row.message_type,
+        direction: row.direction,
+      })),
+    });
+
     const data: MessageWithGuest[] = result.rows.map(
       (row: Message & { guest_name: string; guest_phone: string; guest_status: string }) => {
         const { guest_status, ...rest } = row;

@@ -7,7 +7,7 @@ import { query } from '@/lib/db';
 import { Guest, GuestType } from '@/lib/database/types';
 import { markGuestSent } from '@/lib/database/queries';
 import { formatSwahiliDateTime } from '@/lib/utils/swahili-datetime';
-import { sendSMS } from '@/lib/services/sms';
+import { sendSMS, personalizeGuestMessage } from '@/lib/services/sms';
 import { sendWhatsAppInvitation } from '@/lib/services/whatsapp';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -69,6 +69,30 @@ function buildSmsInvitationBody(
   const venuePart = venue ? ` Mahali: ${venue}.` : '';
   const mapPart = locationLink ? ` Ramani: ${locationLink}` : '';
   return `Habari {name}, umekaribishwa kwenye ${eventName} ${dateTime}.${venuePart}${mapPart}`;
+}
+
+async function insertOutboundMessage(
+  guestId: string,
+  eventId: string,
+  messageType: 'SMS' | 'WhatsApp',
+  content: string,
+  success: boolean,
+  externalId?: string
+) {
+  await query(
+    `INSERT INTO messages
+       (guest_id, event_id, message_type, direction, content, status, external_message_id, sent_at)
+     VALUES ($1, $2, $3, 'outbound', $4, $5, $6, $7)`,
+    [
+      guestId,
+      eventId,
+      messageType,
+      content,
+      success ? 'Sent' : 'Failed',
+      externalId ?? null,
+      success ? new Date() : null,
+    ]
+  );
 }
 
 async function uploadGuestCard(file: File, guestId: string): Promise<string> {
@@ -174,6 +198,15 @@ export async function POST(request: NextRequest) {
     let smsSent = false;
     let whatsappSent = false;
     let lastError = '';
+    let smsExternalId: string | undefined;
+    let whatsappExternalId: string | undefined;
+
+    const personalizedSmsContent = personalizeGuestMessage(
+      smsTemplate,
+      guest.name,
+      guestType
+    );
+    const whatsappLogContent = `Mwaliko wa ${event.name} — ${formattedDateTime}`;
 
     try {
       const smsResult = await sendSMS(phone, smsTemplate, {
@@ -181,6 +214,7 @@ export async function POST(request: NextRequest) {
         guestType,
       });
       smsSent = smsResult.success;
+      smsExternalId = smsResult.externalId;
       if (!smsResult.success && smsResult.error) {
         lastError = smsResult.error;
       }
@@ -190,7 +224,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      await sendWhatsAppInvitation(phone, {
+      const waResponse = await sendWhatsAppInvitation(phone, {
         guestName: guest.name,
         guestType,
         eventName: event.name,
@@ -200,6 +234,7 @@ export async function POST(request: NextRequest) {
         headerImageUrl: cardImageUrl,
       });
       whatsappSent = true;
+      whatsappExternalId = waResponse?.messages?.[0]?.id;
 
       // TODO: Once "nivle_qr_checkin" template is approved by Meta, send a SECOND
       // WhatsApp template message here using the guest's QR code image as header.
@@ -209,6 +244,28 @@ export async function POST(request: NextRequest) {
       if (!lastError) {
         lastError = err instanceof Error ? err.message : 'WhatsApp send failed';
       }
+    }
+
+    if (smsSent) {
+      await insertOutboundMessage(
+        guest.id,
+        guest.event_id,
+        'SMS',
+        personalizedSmsContent,
+        true,
+        smsExternalId
+      );
+    }
+
+    if (whatsappSent) {
+      await insertOutboundMessage(
+        guest.id,
+        guest.event_id,
+        'WhatsApp',
+        whatsappLogContent,
+        true,
+        whatsappExternalId
+      );
     }
 
     const overallSuccess = smsSent || whatsappSent;

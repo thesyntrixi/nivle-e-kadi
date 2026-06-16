@@ -10,12 +10,11 @@ import {
   getShukraniWhatsAppPreview,
 } from '@/lib/services/shukrani';
 
-type ShukraniChannel = 'sms' | 'whatsapp' | 'both';
+type ShukraniChannel = 'sms' | 'whatsapp';
 
 interface TumaShukraniButtonProps {
   eventId: string;
   eventName: string;
-  compact?: boolean;
 }
 
 type Phase = 'idle' | 'modal' | 'sending' | 'done' | 'error';
@@ -67,13 +66,9 @@ async function sendShukraniBatch(
   };
 }
 
-export function TumaShukraniButton({
-  eventId,
-  eventName,
-  compact = false,
-}: TumaShukraniButtonProps) {
+export function TumaShukraniButton({ eventId, eventName }: TumaShukraniButtonProps) {
   const [phase, setPhase] = useState<Phase>('idle');
-  const [channel, setChannel] = useState<ShukraniChannel>('both');
+  const [channel, setChannel] = useState<ShukraniChannel>('sms');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [progressCurrent, setProgressCurrent] = useState(0);
@@ -159,20 +154,11 @@ export function TumaShukraniButton({
     }
   }
 
-  const showSmsPreview = channel === 'sms' || channel === 'both';
-  const showWhatsAppPreview = channel === 'whatsapp' || channel === 'both';
-
   return (
     <>
-      {phase === 'idle' && (
-        <Button
-          variant="outline"
-          className={compact ? '!px-3 !py-2 text-small' : undefined}
-          onClick={() => setPhase('modal')}
-        >
-          Tuma Shukrani
-        </Button>
-      )}
+      <Button variant="outline" onClick={() => setPhase('modal')} disabled={phase === 'sending'}>
+        Tuma Shukrani
+      </Button>
 
       {phase === 'modal' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -203,7 +189,7 @@ export function TumaShukraniButton({
                   onChange={() => setChannel('sms')}
                   className="accent-primary"
                 />
-                <span className="text-sm text-neutral-text">SMS tu</span>
+                <span className="text-sm text-neutral-text">SMS</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -213,17 +199,7 @@ export function TumaShukraniButton({
                   onChange={() => setChannel('whatsapp')}
                   className="accent-primary"
                 />
-                <span className="text-sm text-neutral-text">WhatsApp tu</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name={`shukrani-channel-${eventId}`}
-                  checked={channel === 'both'}
-                  onChange={() => setChannel('both')}
-                  className="accent-primary"
-                />
-                <span className="text-sm text-neutral-text">Zote mbili (SMS + WhatsApp)</span>
+                <span className="text-sm text-neutral-text">WhatsApp</span>
               </label>
             </div>
 
@@ -231,7 +207,7 @@ export function TumaShukraniButton({
               <p className="text-small font-medium uppercase tracking-wide text-neutral-muted">
                 Hakiki ujumbe
               </p>
-              {showSmsPreview && (
+              {channel === 'sms' && (
                 <div className="rounded-input bg-surface-hover p-3 space-y-2">
                   <p className="text-small font-medium text-neutral-text">SMS (Single):</p>
                   <p className="text-small text-neutral-muted whitespace-pre-wrap">
@@ -243,7 +219,7 @@ export function TumaShukraniButton({
                   </p>
                 </div>
               )}
-              {showWhatsAppPreview && (
+              {channel === 'whatsapp' && (
                 <div className="rounded-input bg-surface-hover p-3">
                   <p className="text-small font-medium text-neutral-text mb-2">WhatsApp:</p>
                   <p className="text-small text-neutral-muted whitespace-pre-wrap">
@@ -311,13 +287,13 @@ export function TumaShukraniButton({
             className="w-full max-w-md space-y-4 border border-accent-success/30 bg-accent-success/5"
           >
             <p className="text-sm font-semibold text-accent-success">Imekamilika!</p>
-            {(channel === 'sms' || channel === 'both') && (
+            {channel === 'sms' && (
               <p className="text-sm text-neutral-text">
                 SMS: {stats.smsSent}/{stats.total} zimetumwa
                 {stats.smsFailed > 0 && ` (${stats.smsFailed} zilishindwa)`}
               </p>
             )}
-            {(channel === 'whatsapp' || channel === 'both') && (
+            {channel === 'whatsapp' && (
               <p className="text-sm text-neutral-text">
                 WhatsApp: {stats.whatsappSent}/{stats.total} zimetumwa
                 {stats.whatsappFailed > 0 && ` (${stats.whatsappFailed} zilishindwa)`}

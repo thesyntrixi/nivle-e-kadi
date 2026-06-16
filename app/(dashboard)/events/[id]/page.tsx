@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { EventForm, EventFormData } from '@/components/forms/EventForm';
 import { EventWithClient } from '@/components/dashboard/EventsTable';
 import { SendInvitationsButton } from '@/components/events/SendInvitationsButton';
+import { TumaShukraniButton } from '@/components/events/TumaShukraniButton';
 
 interface EditEventPageProps {
   params: { id: string };
@@ -178,6 +179,18 @@ export default function EditEventPage({ params }: EditEventPageProps) {
       {error && (
         <Alert variant="error" title="Something went wrong" message={error} />
       )}
+
+      <Card padding="lg" className="border border-primary/20">
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-h3 text-neutral-text">Tuma Shukrani</h3>
+            <p className="text-small text-neutral-muted mt-1">
+              Tuma ujumbe wa shukrani na uuzaji kwa wageni wote wa tukio hili
+            </p>
+          </div>
+          <TumaShukraniButton eventId={params.id} eventName={event.name} />
+        </div>
+      </Card>
 
       <Card padding="lg" className="border border-primary/20">
         <div className="space-y-4">

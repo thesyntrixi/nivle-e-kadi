@@ -15,6 +15,7 @@ type ShukraniChannel = 'sms' | 'whatsapp';
 interface TumaShukraniButtonProps {
   eventId: string;
   eventName: string;
+  compact?: boolean;
 }
 
 type Phase = 'idle' | 'modal' | 'sending' | 'done' | 'error';
@@ -66,7 +67,11 @@ async function sendShukraniBatch(
   };
 }
 
-export function TumaShukraniButton({ eventId, eventName }: TumaShukraniButtonProps) {
+export function TumaShukraniButton({
+  eventId,
+  eventName,
+  compact = false,
+}: TumaShukraniButtonProps) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [channel, setChannel] = useState<ShukraniChannel>('sms');
   const [loading, setLoading] = useState(false);
@@ -156,7 +161,14 @@ export function TumaShukraniButton({ eventId, eventName }: TumaShukraniButtonPro
 
   return (
     <>
-      <Button variant="outline" onClick={() => setPhase('modal')} disabled={phase === 'sending'}>
+      <Button
+        variant="outline"
+        onClick={() => setPhase('modal')}
+        disabled={phase === 'sending'}
+        className={
+          compact ? '!px-2.5 !py-1.5 text-small whitespace-nowrap shrink-0' : undefined
+        }
+      >
         Tuma Shukrani
       </Button>
 

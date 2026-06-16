@@ -4,20 +4,22 @@
 import { GuestType } from '@/lib/database/types';
 import { formatGuestDisplayName } from '@/lib/services/sms';
 
+const SHUKRANI_MARKETING_SUFFIX =
+  ' Kama unalo tukio lako lolote au la mtu mwingine linalokuja la aina yoyote iwe Harusi, birthday, graduation, conference, ticket au mengine - tunahusika na mialiko ya kidigitali ya hali ya juu. Call 0767987878 au kelvin@nivle-ekadi.com - NIVLE E-Kadi';
+
+const SHUKRANI_MARKETING_SUFFIX_DOUBLE =
+  ' Kama tukio lako lolote au la mtu mwingine linalokuja la aina yoyote iwe Harusi, birthday, graduation, conference, ticket au mengine - tunahusika na mialiko ya kidigitali ya hali ya juu. Call 0767987878 au kelvin@nivle-ekadi.com - NIVLE E-Kadi';
+
 export function buildShukraniSmsBody(
   guestName: string,
   guestType: GuestType,
   eventName: string
 ): string {
-  const displayName = formatGuestDisplayName(guestName, guestType);
-  const marketing =
-    ' Tunahusika na mialiko ya kidigitali. Wasiliana: 0767987878 au kelvin@nivle-ekadi.com - NIVLE E-Kadi';
-
   if (guestType === 'double') {
-    return `Habari ${displayName}, asante kwa kuja kwenye ${eventName}. Uwepo wenu ulifanya tukio hili kuwa la kipekee. Mna tukio linalokuja la aina yoyote? Harusi, birthday, graduation, conference, ticket au mengine?${marketing}`;
+    return `Habari ${guestName} (Double - watu 2)! Asante sana kwa kuja kwenye ${eventName}. Uwepo wenu ulifanya tukio hili kuwa la kipekee.${SHUKRANI_MARKETING_SUFFIX_DOUBLE}`;
   }
 
-  return `Habari ${displayName}, asante kwa kuja kwenye ${eventName}. Uwepo wako ulifanya tukio hili kuwa la kipekee. Una tukio linalokuja la aina yoyote? Harusi, birthday, graduation, conference, ticket au mengine?${marketing}`;
+  return `Habari ${guestName} (Single)! Asante sana kwa kuja kwenye ${eventName}. Uwepo wako ulifanya tukio hili kuwa la kipekee.${SHUKRANI_MARKETING_SUFFIX}`;
 }
 
 export function getShukraniSmsPreview(eventName: string): { single: string; double: string } {

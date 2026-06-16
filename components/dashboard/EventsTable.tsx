@@ -5,6 +5,7 @@ import { Event } from '@/lib/database/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { TumaShukraniButton } from '@/components/events/TumaShukraniButton';
 
 export type EventWithClient = Event & { client_name: string };
 
@@ -123,16 +124,21 @@ export function EventsTable({ events, onDelete, deletingId = null }: EventsTable
                   <td className="px-4 py-4">
                     <StatusBadge status={event.status} />
                   </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link href={`/events/${event.id}`}>
-                        <Button variant="outline" className="!px-4 !py-2 text-small">
+                  <td className="px-4 py-4 align-middle">
+                    <div className="flex items-center justify-end gap-1.5 flex-nowrap">
+                      <TumaShukraniButton
+                        eventId={event.id}
+                        eventName={event.name}
+                        compact
+                      />
+                      <Link href={`/events/${event.id}`} className="shrink-0">
+                        <Button variant="outline" className="!px-4 !py-2 text-small whitespace-nowrap">
                           Edit
                         </Button>
                       </Link>
                       <Button
                         variant="danger"
-                        className="!px-4 !py-2 text-small"
+                        className="!px-4 !py-2 text-small whitespace-nowrap shrink-0"
                         loading={deletingId === event.id}
                         onClick={() => handleDelete(event.id, event.name)}
                       >
@@ -179,8 +185,9 @@ export function EventsTable({ events, onDelete, deletingId = null }: EventsTable
                 )}
               </div>
 
-              <div className="flex gap-2 pt-2">
-                <Link href={`/events/${event.id}`} className="flex-1">
+              <div className="flex flex-wrap gap-2 pt-2">
+                <TumaShukraniButton eventId={event.id} eventName={event.name} compact />
+                <Link href={`/events/${event.id}`} className="flex-1 min-w-[100px]">
                   <Button variant="outline" fullWidth className="!py-2 text-small">
                     Edit
                   </Button>

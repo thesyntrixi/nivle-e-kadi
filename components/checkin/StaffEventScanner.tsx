@@ -272,9 +272,8 @@ export function StaffEventScanner({ eventId, onStatsUpdate }: StaffEventScannerP
   return (
     <div className="space-y-6">
       <Card padding="md" className="text-center">
-        <p className="text-small text-neutral-muted uppercase tracking-wide">Wamefika</p>
-        <p className="text-4xl font-bold text-neutral-text mt-1">
-          {stats.checked_in_count} / {stats.total_guests} guests
+        <p className="text-3xl md:text-4xl font-bold text-neutral-text">
+          Wamefika: {stats.checked_in_count}/{stats.total_guests}
         </p>
       </Card>
 

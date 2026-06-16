@@ -9,10 +9,9 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 
-type GuestRow = {
-  id: string;
-  checked_in?: boolean;
-  checked_in_at?: string | null;
+type CheckinStats = {
+  checkedIn: number;
+  total: number;
 };
 
 type CheckinResult = {
@@ -58,8 +57,11 @@ function GuestTypeResultBadge({ guestType }: { guestType?: GuestType }) {
 export default function CheckinPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
-  const [guests, setGuests] = useState<GuestRow[]>([]);
-  const [loadingGuests, setLoadingGuests] = useState(false);
+  const [stats, setStats] = useState<CheckinStats>({ checkedIn: 0, total: 0 });
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [sendingReport, setSendingReport] = useState(false);
+  const [reportMessage, setReportMessage] = useState('');
+  const [reportError, setReportError] = useState('');
 
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [manualCode, setManualCode] = useState('');
@@ -70,26 +72,23 @@ export default function CheckinPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isProcessingRef = useRef(false);
 
-  const totalGuests = guests.length;
-  const checkedInCount = guests.filter((g) => g.checked_in).length;
-
-  const fetchGuestCounts = useCallback(async (eventId: string) => {
+  const fetchCheckinStats = useCallback(async (eventId: string) => {
     if (!eventId) {
-      setGuests([]);
+      setStats({ checkedIn: 0, total: 0 });
       return;
     }
 
-    setLoadingGuests(true);
+    setLoadingStats(true);
     try {
-      const res = await fetch(`/api/guests?event_id=${eventId}`);
+      const res = await fetch(`/api/checkin/stats?event_id=${encodeURIComponent(eventId)}`);
       const data = await res.json();
       if (data.success) {
-        setGuests(data.data);
+        setStats({ checkedIn: data.checkedIn, total: data.total });
       }
     } catch (err) {
-      console.error('Fetch guests error:', err);
+      console.error('Fetch check-in stats error:', err);
     } finally {
-      setLoadingGuests(false);
+      setLoadingStats(false);
     }
   }, []);
 
@@ -103,8 +102,13 @@ export default function CheckinPage() {
   }, []);
 
   useEffect(() => {
-    fetchGuestCounts(selectedEventId);
-  }, [selectedEventId, fetchGuestCounts]);
+    fetchCheckinStats(selectedEventId);
+  }, [selectedEventId, fetchCheckinStats]);
+
+  useEffect(() => {
+    setReportMessage('');
+    setReportError('');
+  }, [selectedEventId]);
 
   const pauseScanner = useCallback(async () => {
     if (scannerRef.current) {
@@ -130,13 +134,16 @@ export default function CheckinPage() {
         });
         const data = await res.json();
         setResult(data);
+        if (data.success) {
+          await fetchCheckinStats(selectedEventId);
+        }
         await pauseScanner();
       } catch {
         setResult({ success: false, error: 'Network error' });
         await pauseScanner();
       }
     },
-    [pauseScanner]
+    [fetchCheckinStats, pauseScanner, selectedEventId]
   );
 
   const handleScan = useCallback(
@@ -222,7 +229,38 @@ export default function CheckinPage() {
     }
 
     if (selectedEventId) {
-      await fetchGuestCounts(selectedEventId);
+      await fetchCheckinStats(selectedEventId);
+    }
+  }
+
+  async function handleSendReport() {
+    if (!selectedEventId || sendingReport) return;
+
+    const confirmed = window.confirm(
+      'Tuma report ya check-in kwa nivle.ekadi@gmail.com?'
+    );
+    if (!confirmed) return;
+
+    setSendingReport(true);
+    setReportMessage('');
+    setReportError('');
+
+    try {
+      const res = await fetch('/api/checkin/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: selectedEventId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setReportMessage(data.message || 'Ripoti imetumwa kwa nivle.ekadi@gmail.com');
+      } else {
+        setReportError(data.message || data.error || 'Imeshindwa kutuma ripoti');
+      }
+    } catch {
+      setReportError('Imeshindwa kutuma ripoti');
+    } finally {
+      setSendingReport(false);
     }
   }
 
@@ -315,11 +353,24 @@ export default function CheckinPage() {
         </div>
 
         <div className="text-center py-2">
-          <p className="text-small text-neutral-muted uppercase tracking-wide">Wamefika</p>
-          <p className="text-4xl font-bold text-neutral-text mt-1">
-            {loadingGuests ? '—' : `${checkedInCount} / ${totalGuests}`}
+          <p className="text-3xl md:text-4xl font-bold text-neutral-text mt-1">
+            {loadingStats
+              ? 'Wamefika: —'
+              : `Wamefika: ${stats.checkedIn}/${stats.total}`}
           </p>
         </div>
+
+        <Button
+          fullWidth
+          variant="outline"
+          onClick={handleSendReport}
+          disabled={!selectedEventId || sendingReport}
+          loading={sendingReport}
+        >
+          Tuma Report
+        </Button>
+        {reportMessage && <Alert variant="success" message={reportMessage} />}
+        {reportError && <Alert variant="error" message={reportError} />}
       </Card>
 
       <Card padding="md">

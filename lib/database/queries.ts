@@ -211,13 +211,21 @@ export async function checkInGuestForEvent(code: string, eventId: string) {
   };
 }
 
-export async function getEventCheckinStats(eventId: string) {
-  const statsResult = await query(
-    `SELECT COUNT(*)::int AS total_guests,
-            COUNT(CASE WHEN checked_in = true THEN 1 END)::int AS checked_in_count
+export async function getCheckinStats(
+  eventId: string
+): Promise<{ checkedIn: number; total: number }> {
+  const result = await query(
+    `SELECT COUNT(*)::int AS total,
+            COUNT(CASE WHEN checked_in = true THEN 1 END)::int AS checked_in
      FROM guests WHERE event_id = $1`,
     [eventId]
   );
+  const row = result.rows[0] as { total: number; checked_in: number };
+  return { checkedIn: row.checked_in, total: row.total };
+}
+
+export async function getEventCheckinStats(eventId: string) {
+  const { checkedIn, total } = await getCheckinStats(eventId);
 
   const recentResult = await query(
     `SELECT name, checked_in_at
@@ -229,9 +237,39 @@ export async function getEventCheckinStats(eventId: string) {
   );
 
   return {
-    ...statsResult.rows[0],
+    total_guests: total,
+    checked_in_count: checkedIn,
     recent_checkins: recentResult.rows as Array<{ name: string; checked_in_at: string }>,
   };
+}
+
+export async function getOwnedEventByUserId(userId: string, eventId: string) {
+  const result = await query(
+    `SELECT e.*
+     FROM events e
+     JOIN clients c ON e.client_id = c.id
+     WHERE e.id = $1 AND c.user_id = $2 AND c.is_active = true`,
+    [eventId, userId]
+  );
+  return result.rows[0] as Event | undefined;
+}
+
+export type CheckinReportGuestRow = {
+  name: string;
+  phone: string;
+  guest_type: GuestType;
+  checked_in: boolean;
+  checked_in_at: Date | string | null;
+};
+
+export async function getCheckinReportGuests(eventId: string): Promise<CheckinReportGuestRow[]> {
+  const result = await query(
+    `SELECT name, phone, guest_type, checked_in, checked_in_at
+     FROM guests
+     WHERE event_id = $1`,
+    [eventId]
+  );
+  return result.rows as CheckinReportGuestRow[];
 }
 
 // ===== CLIENT QUERIES =====

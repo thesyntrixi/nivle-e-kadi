@@ -74,7 +74,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="nivledesigns@gmailcom"
+              placeholder="Weka barua pepe yako"
               required
               autoComplete="email"
               disabled={loading}
@@ -85,7 +85,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="Weka nywila yako"
               required
               autoComplete="current-password"
               disabled={loading}
@@ -95,25 +95,6 @@ export default function LoginPage() {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-
-          <div className="mt-6 p-4 rounded-input bg-accent-info/5 border border-accent-info/20">
-            <div className="flex items-center gap-2 mb-3">
-              <svg className="h-4 w-4 text-accent-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-small font-semibold text-accent-info uppercase tracking-wide">Demo Credentials</p>
-            </div>
-            <div className="space-y-1 text-small text-neutral-muted">
-              <p>
-                Email:{" "}
-                <code className="text-neutral-text bg-surface-hover px-1.5 py-0.5 rounded">nivledesigns@gmailcom</code>
-              </p>
-              <p>
-                Password:{" "}
-                <code className="text-neutral-text bg-surface-hover px-1.5 py-0.5 rounded">Kelvin2026</code>
-              </p>
-            </div>
-          </div>
         </Card>
 
         <footer className="text-center mt-8 text-small text-neutral-muted">

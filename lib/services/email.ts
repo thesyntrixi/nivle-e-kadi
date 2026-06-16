@@ -4,6 +4,7 @@
 import { Resend } from 'resend';
 
 const REPORT_RECIPIENT = 'nivle.ekadi@gmail.com';
+const DEFAULT_FROM_EMAIL = 'NIVLE E-Kadi <kelvin@nivle-ekadi.com>';
 
 function getResendClient(): Resend | null {
   const apiKey = process.env.RESEND_API_KEY;
@@ -24,8 +25,7 @@ export async function sendCheckinReport(
     return { success: false, error: 'Email service is not configured (RESEND_API_KEY missing)' };
   }
 
-  const from =
-    process.env.RESEND_FROM_EMAIL ?? 'NIVLE E-Kadi <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_EMAIL;
   const safeName = sanitizeFilename(eventName);
   const filename = `checkin-report-${safeName}.pdf`;
 

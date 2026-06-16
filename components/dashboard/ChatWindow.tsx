@@ -111,6 +111,8 @@ export function ChatWindow({
   const [text, setText] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const prevGuestIdRef = useRef<string | undefined>(guestId);
+  const prevMessageCountRef = useRef(messages.length);
 
   const charLimit = messageType === 'SMS' ? 160 : 4096;
   const isWhatsApp = messageType === 'WhatsApp';
@@ -120,7 +122,24 @@ export function ChatWindow({
   }, [guestId]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const guestChanged = guestId !== prevGuestIdRef.current;
+    prevGuestIdRef.current = guestId;
+
+    if (guestChanged) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      prevMessageCountRef.current = messages.length;
+      return;
+    }
+
+    if (messages.length > prevMessageCountRef.current) {
+      const lastMessage = messages[messages.length - 1];
+      const isOutbound = (lastMessage.direction ?? 'outbound') === 'outbound';
+      if (isOutbound || lastMessage.id.startsWith('temp-')) {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    prevMessageCountRef.current = messages.length;
   }, [messages, guestId]);
 
   useEffect(() => {

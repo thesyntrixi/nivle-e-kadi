@@ -111,30 +111,44 @@ function MessagesPageContent() {
     return list;
   }, [conversations, filter, searchQuery]);
 
-  const fetchAllMessages = useCallback(async () => {
-    setLoadingList(true);
-    setError('');
+  const fetchAllMessages = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+
+    if (!silent) {
+      setLoadingList(true);
+      setError('');
+    }
 
     try {
       const response = await fetch('/api/messages');
       const data = await response.json();
 
       if (!data.success) {
-        setError(data.error || 'Failed to load messages.');
+        if (!silent) {
+          setError(data.error || 'Failed to load messages.');
+        }
         return;
       }
 
       setAllMessages(data.data);
     } catch (err) {
       console.error('Fetch messages error:', err);
-      setError('Failed to load messages.');
+      if (!silent) {
+        setError('Failed to load messages.');
+      }
     } finally {
-      setLoadingList(false);
+      if (!silent) {
+        setLoadingList(false);
+      }
     }
   }, []);
 
-  const fetchChatHistory = useCallback(async (guestId: string) => {
-    setLoadingChat(true);
+  const fetchChatHistory = useCallback(async (guestId: string, options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+
+    if (!silent) {
+      setLoadingChat(true);
+    }
 
     try {
       const response = await fetch(`/api/messages?guest_id=${guestId}`);
@@ -146,7 +160,9 @@ function MessagesPageContent() {
     } catch (err) {
       console.error('Fetch chat error:', err);
     } finally {
-      setLoadingChat(false);
+      if (!silent) {
+        setLoadingChat(false);
+      }
     }
   }, []);
 
@@ -169,12 +185,12 @@ function MessagesPageContent() {
     }
   }, [selectedGuestId, fetchChatHistory]);
 
-  // Poll for updates every 30 seconds
+  // Poll for updates every 30 seconds (silent — no loading UI)
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchAllMessages();
+      fetchAllMessages({ silent: true });
       if (selectedGuestId) {
-        fetchChatHistory(selectedGuestId);
+        fetchChatHistory(selectedGuestId, { silent: true });
       }
     }, 30000);
 
@@ -235,8 +251,8 @@ function MessagesPageContent() {
       }
 
       await Promise.all([
-        fetchChatHistory(selectedGuestId),
-        fetchAllMessages(),
+        fetchChatHistory(selectedGuestId, { silent: true }),
+        fetchAllMessages({ silent: true }),
       ]);
     } catch (err) {
       console.error('Send message error:', err);
@@ -279,7 +295,7 @@ function MessagesPageContent() {
       });
       setSuccess('');
       setShowBulkModal(false);
-      await fetchAllMessages();
+      await fetchAllMessages({ silent: true });
     } catch (err) {
       throw err;
     } finally {
@@ -305,7 +321,7 @@ function MessagesPageContent() {
       )}
 
       <div className="px-4 sm:px-6 lg:px-8 pt-4 shrink-0">
-        <SendSingleGuestForm onSent={fetchAllMessages} />
+        <SendSingleGuestForm onSent={() => fetchAllMessages({ silent: true })} />
       </div>
 
       <div className="flex flex-1 min-h-0 border border-neutral-border rounded-none sm:rounded-card overflow-hidden bg-surface-card mx-0 sm:mx-4 lg:mx-8 sm:mb-4 lg:mb-8 mt-4">

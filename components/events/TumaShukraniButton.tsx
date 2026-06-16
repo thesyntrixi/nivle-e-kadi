@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
@@ -85,6 +86,11 @@ export function TumaShukraniButton({
     whatsappFailed: 0,
     total: 0,
   });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const smsPreview = useMemo(() => getShukraniSmsPreview(eventName), [eventName]);
   const whatsappPreview = useMemo(
@@ -159,6 +165,157 @@ export function TumaShukraniButton({
     }
   }
 
+  const overlay =
+    phase !== 'idle' && mounted
+      ? createPortal(
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4 bg-black/60"
+            style={{ zIndex: 9999 }}
+            role="dialog"
+            aria-modal="true"
+          >
+            {phase === 'modal' && (
+              <Card padding="lg" className="w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-5">
+                <div>
+                  <h3 className="text-h2 text-neutral-text">Tuma Shukrani</h3>
+                  <p className="text-small text-neutral-muted mt-1">
+                    Tuma ujumbe wa shukrani na uuzaji kwa wageni wote wa tukio hili.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-small font-medium uppercase tracking-wide text-neutral-muted mb-1">
+                    Tukio
+                  </p>
+                  <p className="text-sm font-semibold text-neutral-text">{eventName}</p>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-small font-medium uppercase tracking-wide text-neutral-muted">
+                    Njia ya kutuma
+                  </p>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`shukrani-channel-${eventId}`}
+                      checked={channel === 'sms'}
+                      onChange={() => setChannel('sms')}
+                      className="accent-primary"
+                    />
+                    <span className="text-sm text-neutral-text">SMS</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`shukrani-channel-${eventId}`}
+                      checked={channel === 'whatsapp'}
+                      onChange={() => setChannel('whatsapp')}
+                      className="accent-primary"
+                    />
+                    <span className="text-sm text-neutral-text">WhatsApp</span>
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-small font-medium uppercase tracking-wide text-neutral-muted">
+                    Hakiki ujumbe
+                  </p>
+                  {channel === 'sms' && (
+                    <div className="rounded-input bg-surface-hover p-3 space-y-2">
+                      <p className="text-small font-medium text-neutral-text">SMS (Single):</p>
+                      <p className="text-small text-neutral-muted whitespace-pre-wrap">
+                        {smsPreview.single}
+                      </p>
+                      <p className="text-small font-medium text-neutral-text pt-2">SMS (Double):</p>
+                      <p className="text-small text-neutral-muted whitespace-pre-wrap">
+                        {smsPreview.double}
+                      </p>
+                    </div>
+                  )}
+                  {channel === 'whatsapp' && (
+                    <div className="rounded-input bg-surface-hover p-3">
+                      <p className="text-small font-medium text-neutral-text mb-2">WhatsApp:</p>
+                      <p className="text-small text-neutral-muted whitespace-pre-wrap">
+                        {whatsappPreview}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <Button onClick={handleSend} loading={loading}>
+                    Tuma
+                  </Button>
+                  <Button variant="outline" onClick={reset} disabled={loading}>
+                    Cancel
+                  </Button>
+                </div>
+              </Card>
+            )}
+
+            {phase === 'sending' && (
+              <Card padding="lg" className="w-full max-w-md space-y-4">
+                <div className="flex items-center gap-3">
+                  <Spinner size="sm" />
+                  <p className="text-sm font-medium text-neutral-text">Inatuma...</p>
+                </div>
+                <p className="text-sm text-neutral-muted">
+                  {progressCurrent} / {progressTotal}
+                </p>
+                <div className="h-2 bg-surface-hover rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{
+                      width:
+                        progressTotal > 0
+                          ? `${Math.min(100, (progressCurrent / progressTotal) * 100)}%`
+                          : '0%',
+                    }}
+                  />
+                </div>
+              </Card>
+            )}
+
+            {phase === 'error' && (
+              <Card padding="lg" className="w-full max-w-md space-y-4">
+                <Alert variant="error" message={error} />
+                <div className="flex gap-3">
+                  <Button onClick={() => setPhase('modal')}>Jaribu Tena</Button>
+                  <Button variant="outline" onClick={reset}>
+                    Funga
+                  </Button>
+                </div>
+              </Card>
+            )}
+
+            {phase === 'done' && (
+              <Card
+                padding="lg"
+                className="w-full max-w-md space-y-4 border border-accent-success/30 bg-accent-success/5"
+              >
+                <p className="text-sm font-semibold text-accent-success">Imekamilika!</p>
+                {channel === 'sms' && (
+                  <p className="text-sm text-neutral-text">
+                    SMS: {stats.smsSent}/{stats.total} zimetumwa
+                    {stats.smsFailed > 0 && ` (${stats.smsFailed} zilishindwa)`}
+                  </p>
+                )}
+                {channel === 'whatsapp' && (
+                  <p className="text-sm text-neutral-text">
+                    WhatsApp: {stats.whatsappSent}/{stats.total} zimetumwa
+                    {stats.whatsappFailed > 0 && ` (${stats.whatsappFailed} zilishindwa)`}
+                  </p>
+                )}
+                <Button variant="outline" onClick={reset}>
+                  Funga
+                </Button>
+              </Card>
+            )}
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <>
       <Button
@@ -171,152 +328,7 @@ export function TumaShukraniButton({
       >
         Tuma Shukrani
       </Button>
-
-      {phase === 'modal' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <Card padding="lg" className="w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-5">
-            <div>
-              <h3 className="text-h2 text-neutral-text">Tuma Shukrani</h3>
-              <p className="text-small text-neutral-muted mt-1">
-                Tuma ujumbe wa shukrani na uuzaji kwa wageni wote wa tukio hili.
-              </p>
-            </div>
-
-            <div>
-              <p className="text-small font-medium uppercase tracking-wide text-neutral-muted mb-1">
-                Tukio
-              </p>
-              <p className="text-sm font-semibold text-neutral-text">{eventName}</p>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-small font-medium uppercase tracking-wide text-neutral-muted">
-                Njia ya kutuma
-              </p>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name={`shukrani-channel-${eventId}`}
-                  checked={channel === 'sms'}
-                  onChange={() => setChannel('sms')}
-                  className="accent-primary"
-                />
-                <span className="text-sm text-neutral-text">SMS</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name={`shukrani-channel-${eventId}`}
-                  checked={channel === 'whatsapp'}
-                  onChange={() => setChannel('whatsapp')}
-                  className="accent-primary"
-                />
-                <span className="text-sm text-neutral-text">WhatsApp</span>
-              </label>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-small font-medium uppercase tracking-wide text-neutral-muted">
-                Hakiki ujumbe
-              </p>
-              {channel === 'sms' && (
-                <div className="rounded-input bg-surface-hover p-3 space-y-2">
-                  <p className="text-small font-medium text-neutral-text">SMS (Single):</p>
-                  <p className="text-small text-neutral-muted whitespace-pre-wrap">
-                    {smsPreview.single}
-                  </p>
-                  <p className="text-small font-medium text-neutral-text pt-2">SMS (Double):</p>
-                  <p className="text-small text-neutral-muted whitespace-pre-wrap">
-                    {smsPreview.double}
-                  </p>
-                </div>
-              )}
-              {channel === 'whatsapp' && (
-                <div className="rounded-input bg-surface-hover p-3">
-                  <p className="text-small font-medium text-neutral-text mb-2">WhatsApp:</p>
-                  <p className="text-small text-neutral-muted whitespace-pre-wrap">
-                    {whatsappPreview}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button onClick={handleSend} loading={loading}>
-                Tuma
-              </Button>
-              <Button variant="outline" onClick={reset} disabled={loading}>
-                Cancel
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {phase === 'sending' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <Card padding="lg" className="w-full max-w-md space-y-4">
-            <div className="flex items-center gap-3">
-              <Spinner size="sm" />
-              <p className="text-sm font-medium text-neutral-text">Inatuma...</p>
-            </div>
-            <p className="text-sm text-neutral-muted">
-              {progressCurrent} / {progressTotal}
-            </p>
-            <div className="h-2 bg-surface-hover rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-300"
-                style={{
-                  width:
-                    progressTotal > 0
-                      ? `${Math.min(100, (progressCurrent / progressTotal) * 100)}%`
-                      : '0%',
-                }}
-              />
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {phase === 'error' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <Card padding="lg" className="w-full max-w-md space-y-4">
-            <Alert variant="error" message={error} />
-            <div className="flex gap-3">
-              <Button onClick={() => setPhase('modal')}>Jaribu Tena</Button>
-              <Button variant="outline" onClick={reset}>
-                Funga
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {phase === 'done' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <Card
-            padding="lg"
-            className="w-full max-w-md space-y-4 border border-accent-success/30 bg-accent-success/5"
-          >
-            <p className="text-sm font-semibold text-accent-success">Imekamilika!</p>
-            {channel === 'sms' && (
-              <p className="text-sm text-neutral-text">
-                SMS: {stats.smsSent}/{stats.total} zimetumwa
-                {stats.smsFailed > 0 && ` (${stats.smsFailed} zilishindwa)`}
-              </p>
-            )}
-            {channel === 'whatsapp' && (
-              <p className="text-sm text-neutral-text">
-                WhatsApp: {stats.whatsappSent}/{stats.total} zimetumwa
-                {stats.whatsappFailed > 0 && ` (${stats.whatsappFailed} zilishindwa)`}
-              </p>
-            )}
-            <Button variant="outline" onClick={reset}>
-              Funga
-            </Button>
-          </Card>
-        </div>
-      )}
+      {overlay}
     </>
   );
 }

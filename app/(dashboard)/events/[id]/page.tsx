@@ -183,18 +183,6 @@ export default function EditEventPage({ params }: EditEventPageProps) {
       <Card padding="lg" className="border border-primary/20">
         <div className="space-y-4">
           <div>
-            <h3 className="text-h3 text-neutral-text">Tuma Shukrani</h3>
-            <p className="text-small text-neutral-muted mt-1">
-              Tuma ujumbe wa shukrani na uuzaji kwa wageni wote wa tukio hili
-            </p>
-          </div>
-          <TumaShukraniButton eventId={params.id} eventName={event.name} />
-        </div>
-      </Card>
-
-      <Card padding="lg" className="border border-primary/20">
-        <div className="space-y-4">
-          <div>
             <h3 className="text-h3 text-neutral-text">Tuma Mialiko</h3>
             <p className="text-small text-neutral-muted mt-1">
               Tuma SMS na WhatsApp kwa wageni wote wenye status Pending (Double kwanza, kisha Single)
@@ -212,6 +200,18 @@ export default function EditEventPage({ params }: EditEventPageProps) {
           isLoading={submitting}
           clientsLoading={clientsLoading}
         />
+      </Card>
+
+      <Card padding="lg" className="border border-primary/20">
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-h3 text-neutral-text">Tuma Shukrani</h3>
+            <p className="text-small text-neutral-muted mt-1">
+              Tuma ujumbe wa shukrani na uuzaji kwa wageni wote wa tukio hili
+            </p>
+          </div>
+          <TumaShukraniButton eventId={event.id} eventName={event.name} />
+        </div>
       </Card>
 
       <Card padding="md" className="border-accent-error/30">

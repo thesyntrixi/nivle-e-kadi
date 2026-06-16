@@ -5,6 +5,7 @@ import { Event } from '@/lib/database/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { TumaShukraniButton } from '@/components/events/TumaShukraniButton';
 
 export type EventWithClient = Event & { client_name: string };
 
@@ -124,7 +125,12 @@ export function EventsTable({ events, onDelete, deletingId = null }: EventsTable
                     <StatusBadge status={event.status} />
                   </td>
                   <td className="px-4 py-4">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2 flex-wrap">
+                      <TumaShukraniButton
+                        eventId={event.id}
+                        eventName={event.name}
+                        compact
+                      />
                       <Link href={`/events/${event.id}`}>
                         <Button variant="outline" className="!px-4 !py-2 text-small">
                           Edit
@@ -179,7 +185,8 @@ export function EventsTable({ events, onDelete, deletingId = null }: EventsTable
                 )}
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-2">
+                <TumaShukraniButton eventId={event.id} eventName={event.name} compact />
                 <Link href={`/events/${event.id}`} className="flex-1">
                   <Button variant="outline" fullWidth className="!py-2 text-small">
                     Edit

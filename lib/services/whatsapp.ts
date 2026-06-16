@@ -266,3 +266,72 @@ export async function sendWhatsAppQrCheckin(
 
   return responseData;
 }
+
+/**
+ * Send the "nivle_shukrani" template (Swahili).
+ * Body variables: {{1}} guest display name, {{2}} event name
+ * No header image.
+ */
+export async function sendWhatsAppShukrani(
+  to: string,
+  params: {
+    guestName: string;
+    guestType?: GuestType;
+    eventName: string;
+  }
+): Promise<SendWhatsAppResult> {
+  if (!isConfigured()) {
+    return { success: false, error: 'WhatsApp service is not configured' };
+  }
+
+  try {
+    const formattedPhone = formatPhoneForWhatsApp(to);
+    const displayName = formatGuestDisplayName(params.guestName, params.guestType ?? 'single');
+
+    const requestBody = {
+      messaging_product: 'whatsapp',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: 'nivle_shukrani',
+        language: { code: 'sw' },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: displayName },
+              { type: 'text', text: params.eventName },
+            ],
+          },
+        ],
+      },
+    };
+
+    console.log('WhatsApp shukrani request payload:', JSON.stringify(requestBody));
+
+    const response = await fetch(getApiUrl(), {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(requestBody),
+    });
+
+    const responseData = await response.json();
+    console.log('WhatsApp shukrani response:', JSON.stringify(responseData));
+
+    if (!response.ok) {
+      console.error('WhatsApp shukrani API error:', JSON.stringify(responseData));
+      const errMsg =
+        responseData?.error?.message ||
+        JSON.stringify(responseData) ||
+        'WhatsApp service unavailable';
+      return { success: false, error: errMsg };
+    }
+
+    const externalId = responseData?.messages?.[0]?.id || String(Date.now());
+    return { success: true, externalId };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('WhatsApp shukrani send failed:', errorMsg);
+    return { success: false, error: 'WhatsApp service unavailable' };
+  }
+}

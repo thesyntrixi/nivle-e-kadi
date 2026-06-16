@@ -569,3 +569,28 @@ export async function getClientOverview(clientId: string) {
   );
   return result.rows[0];
 }
+
+// ===== SHUKRANI QUERIES =====
+export async function getShukraniGuestCount(eventId: string): Promise<number> {
+  const result = await query(
+    'SELECT COUNT(*)::int AS count FROM guests WHERE event_id = $1',
+    [eventId]
+  );
+  return result.rows[0]?.count ?? 0;
+}
+
+export async function getShukraniGuestBatch(
+  eventId: string,
+  limit: number,
+  offset: number
+) {
+  const result = await query(
+    `SELECT id, name, phone, guest_type
+     FROM guests
+     WHERE event_id = $1
+     ORDER BY id ASC
+     LIMIT $2 OFFSET $3`,
+    [eventId, limit, offset]
+  );
+  return result.rows as Pick<Guest, 'id' | 'name' | 'phone' | 'guest_type'>[];
+}

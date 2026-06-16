@@ -37,14 +37,14 @@ export function AddGuestManualForm({
     }
 
     const email = formData.email.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Valid email is required');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Invalid email format');
       return;
     }
 
     const phone = formData.phone.trim();
-    if (!phone.startsWith('+')) {
-      setError('Phone must start with + (e.g., +255712345678)');
+    if (!phone) {
+      setError('Phone number is required');
       return;
     }
 
@@ -57,7 +57,7 @@ export function AddGuestManualForm({
         body: JSON.stringify({
           event_id: eventId,
           name: formData.name.trim(),
-          email,
+          email: email || null,
           phone,
           guest_type: formData.guest_type,
         }),
@@ -95,13 +95,12 @@ export function AddGuestManualForm({
       />
 
       <Input
-        label="Guest Email"
+        label="Guest Email (optional)"
         type="email"
         value={formData.email}
         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
         placeholder="john@example.com"
         disabled={loading}
-        required
       />
 
       <Input
@@ -109,7 +108,7 @@ export function AddGuestManualForm({
         type="tel"
         value={formData.phone}
         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-        placeholder="+255712345678"
+        placeholder="0767987878 au 255767987878"
         disabled={loading}
         required
       />

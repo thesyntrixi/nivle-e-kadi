@@ -3,6 +3,7 @@
 
 import { GuestType } from '@/lib/database/types';
 import { formatGuestDisplayName, personalizeGuestMessage } from '@/lib/services/sms';
+import { formatPhoneForWhatsAppApi } from '@/lib/utils/phone';
 
 const WHATSAPP_API_VERSION = 'v21.0';
 
@@ -34,7 +35,7 @@ function isConfigured(): boolean {
  * Format phone number for WhatsApp API (digits only, no + or spaces)
  */
 function formatPhoneForWhatsApp(phone: string): string {
-  return phone.replace(/[\s+]/g, '');
+  return formatPhoneForWhatsAppApi(phone);
 }
 
 /**
@@ -153,6 +154,7 @@ export async function sendWhatsAppInvitation(
   }
 ) {
   const formattedPhone = formatPhoneForWhatsApp(to);
+  console.log('WhatsApp invitation API phone:', formattedPhone);
   const guestType = params.guestType ?? 'single';
   const displayName = formatGuestDisplayName(params.guestName, guestType);
   const hostName = params.familyName?.trim() || params.eventName?.trim() || 'TBA';

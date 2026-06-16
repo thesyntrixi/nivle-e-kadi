@@ -6,8 +6,8 @@ import { verifyToken } from '@/lib/token';
 import { query } from '@/lib/db';
 import { createGuest, getGuestsByEventId } from '@/lib/database/queries';
 import { Event } from '@/lib/database/types';
+import { normalizePhoneForStorage } from '@/lib/utils/phone';
 
-const PHONE_REGEX = /^\+[\d\s()-]{7,20}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function getUserId(request: NextRequest): string | null {
@@ -90,43 +90,42 @@ async function updateEventGuestCount(eventId: string): Promise<void> {
 function validateGuestBody(body: {
   event_id?: string;
   name?: string;
-  email?: string;
+  email?: string | null;
   phone?: string;
   guest_type?: string;
-}): string | null {
+}): { error: string } | { phone: string; email: string | null } {
   const eventId = body.event_id?.trim();
   const name = body.name?.trim();
-  const email = body.email?.trim();
-  const phone = body.phone?.trim();
+  const rawEmail = body.email?.trim() ?? '';
+  const rawPhone = body.phone?.trim() ?? '';
 
   if (!eventId) {
-    return 'Event is required';
+    return { error: 'Event is required' };
   }
   if (!name || name.length < 2) {
-    return 'Name must be at least 2 characters';
+    return { error: 'Name must be at least 2 characters' };
   }
   if (name.length > 100) {
-    return 'Name must be at most 100 characters';
+    return { error: 'Name must be at most 100 characters' };
   }
-  if (!email) {
-    return 'Email is required';
+  if (rawEmail && !EMAIL_REGEX.test(rawEmail)) {
+    return { error: 'Invalid email format' };
   }
-  if (!EMAIL_REGEX.test(email)) {
-    return 'Invalid email format';
+  if (!rawPhone) {
+    return { error: 'Phone number is required' };
   }
+
+  const phone = normalizePhoneForStorage(rawPhone);
   if (!phone) {
-    return 'Phone number is required';
-  }
-  if (!PHONE_REGEX.test(phone)) {
-    return 'Phone must start with + (e.g., +255712345678)';
+    return { error: 'Invalid phone number. Use 076XXXXXXXX or 255XXXXXXXXX' };
   }
 
   const guestType = body.guest_type?.trim();
   if (guestType && guestType !== 'single' && guestType !== 'double') {
-    return 'Guest type must be single or double';
+    return { error: 'Guest type must be single or double' };
   }
 
-  return null;
+  return { phone, email: rawEmail || null };
 }
 
 export async function GET(request: NextRequest) {
@@ -178,19 +177,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validationError = validateGuestBody(body);
+    const validation = validateGuestBody(body);
 
-    if (validationError) {
+    if ('error' in validation) {
       return NextResponse.json(
-        { success: false, error: validationError },
+        { success: false, error: validation.error },
         { status: 400 }
       );
     }
 
     const eventId = body.event_id.trim();
     const name = body.name.trim();
-    const email = body.email.trim();
-    const phone = body.phone.trim();
+    const email = validation.email;
+    const phone = validation.phone;
     const guestType =
       body.guest_type === 'double' ? 'double' : ('single' as const);
 

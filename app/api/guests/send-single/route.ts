@@ -10,6 +10,11 @@ import { formatSwahiliDateTime } from '@/lib/utils/swahili-datetime';
 import { sendSMS, personalizeGuestMessage } from '@/lib/services/sms';
 import { sendWhatsAppInvitation, sendWhatsAppQrCheckin } from '@/lib/services/whatsapp';
 import { getPublicGuestQrUrl } from '@/lib/guest-qr';
+import {
+  formatPhoneForSmsApi,
+  formatPhoneForWhatsAppApi,
+  normalizePhoneForStorage,
+} from '@/lib/utils/phone';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg']);
@@ -52,14 +57,6 @@ async function getOwnedEvent(userId: string, eventId: string) {
         location_link: string | null;
       }
     | undefined;
-}
-
-function formatPhoneForSending(phone: string): string {
-  const trimmed = phone.replace(/\s+/g, '');
-  if (trimmed.startsWith('+')) return trimmed;
-  if (trimmed.startsWith('255')) return `+${trimmed}`;
-  if (trimmed.startsWith('0')) return `+255${trimmed.slice(1)}`;
-  return `+${trimmed}`;
 }
 
 function buildSmsInvitationBody(
@@ -189,7 +186,25 @@ export async function POST(request: NextRequest) {
     const venue = event.venue ?? '';
     const locationLink = event.location_link ?? '';
     const guestType = (guest.guest_type ?? 'single') as GuestType;
-    const phone = formatPhoneForSending(guest.phone);
+    const normalizedStored = normalizePhoneForStorage(guest.phone);
+    if (!normalizedStored) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid guest phone number format' },
+        { status: 400 }
+      );
+    }
+
+    const smsPhone = formatPhoneForSmsApi(normalizedStored);
+    const whatsAppPhone = formatPhoneForWhatsAppApi(normalizedStored);
+
+    console.log('Single send phone debug', {
+      guestId: guest.id,
+      storedInDb: guest.phone,
+      normalizedStored,
+      smsApiPhone: smsPhone,
+      whatsAppApiPhone: whatsAppPhone,
+    });
+
     const smsTemplate = buildSmsInvitationBody(
       event.name,
       formattedDateTime,
@@ -211,7 +226,8 @@ export async function POST(request: NextRequest) {
     const whatsappLogContent = `Mwaliko wa ${event.name} — ${formattedDateTime}`;
 
     try {
-      const smsResult = await sendSMS(phone, smsTemplate, {
+      console.log('Single send SMS API phone:', smsPhone);
+      const smsResult = await sendSMS(smsPhone, smsTemplate, {
         guestName: guest.name,
         guestType,
       });
@@ -228,7 +244,8 @@ export async function POST(request: NextRequest) {
     const hostName = event.family_name?.trim() || event.name;
 
     try {
-      const waResponse = await sendWhatsAppInvitation(phone, {
+      console.log('Single send WhatsApp API phone:', whatsAppPhone);
+      const waResponse = await sendWhatsAppInvitation(whatsAppPhone, {
         guestName: guest.name,
         guestType,
         eventName: event.name,
@@ -243,7 +260,7 @@ export async function POST(request: NextRequest) {
 
       try {
         const qrImageUrl = getPublicGuestQrUrl(guest.invitation_code);
-        await sendWhatsAppQrCheckin(phone, {
+        await sendWhatsAppQrCheckin(whatsAppPhone, {
           guestName: guest.name,
           guestType,
           headerImageUrl: qrImageUrl,

@@ -3,6 +3,7 @@
 
 import { query } from '../db';
 import { User, Client, Event, Guest, GuestType, AssignedEvent, StaffEvent } from './types';
+import { normalizePhoneForStorage } from '../utils/phone';
 
 // ===== USER QUERIES =====
 
@@ -339,18 +340,7 @@ export async function generateUniqueInvitationCode(
 }
 
 export function normalizeBulkImportPhone(raw: string): string | null {
-  const digits = raw.replace(/\D/g, '');
-  if (!digits) return null;
-
-  if (digits.startsWith('0') && digits.length === 10) {
-    return `255${digits.slice(1)}`;
-  }
-
-  if (digits.startsWith('255') && digits.length === 12) {
-    return digits;
-  }
-
-  return null;
+  return normalizePhoneForStorage(raw);
 }
 
 export function normalizePhoneForComparison(phone: string): string {

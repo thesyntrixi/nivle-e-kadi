@@ -2,6 +2,7 @@
 // Real NextSms SMS integration
 
 import { GuestType } from '@/lib/database/types';
+import { normalizePhoneForStorage } from '@/lib/utils/phone';
 
 const NEXTSMS_API_URL = 'https://messaging-service.co.tz/api/sms/v1/text/single';
 
@@ -16,10 +17,6 @@ function createAuthHeader(): string {
   const credentials = `${NEXTSMS_USERNAME}:${NEXTSMS_PASSWORD}`;
   const encoded = Buffer.from(credentials).toString('base64');
   return `Basic ${encoded}`;
-}
-
-function formatPhoneForNextSms(phone: string): string {
-  return phone.replace(/\s+/g, '').replace(/^\+/, '');
 }
 
 /**
@@ -99,19 +96,19 @@ export async function sendSMS(
       };
     }
 
-    const normalizedPhone = phone.replace(/\s+/g, '');
-    const phoneWithPlus = normalizedPhone.startsWith('+')
-      ? normalizedPhone
-      : `+${normalizedPhone}`;
+    const stored = normalizePhoneForStorage(phone);
+    const digits = stored ?? phone.replace(/\D/g, '').replace(/^\+/, '');
+    const phoneWithPlus = `+${digits}`;
 
     if (!/^\+\d{10,15}$/.test(phoneWithPlus)) {
       return {
         success: false,
-        error: 'Invalid phone format. Use +255... format',
+        error: 'Invalid phone format. Use 076XXXXXXXX or 255XXXXXXXXX',
       };
     }
 
-    const formattedPhone = formatPhoneForNextSms(normalizedPhone);
+    const formattedPhone = digits;
+    console.log('NextSms API phone:', formattedPhone);
     const reference = `nivle-${Date.now()}`;
     const textMessage =
       options?.guestName !== undefined

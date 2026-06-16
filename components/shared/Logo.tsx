@@ -1,31 +1,30 @@
-import Image from "next/image";
-
 interface LogoProps {
   size?: "sm" | "md" | "lg";
   collapsed?: boolean;
 }
 
 const sizeMap = {
-  sm: { width: 180, height: 70, collapsedWidth: 48, collapsedHeight: 48 },
-  md: { width: 150, height: 40, collapsedWidth: 40, collapsedHeight: 40 },
-  lg: { width: 200, height: 80, collapsedWidth: 48, collapsedHeight: 48 },
+  sm: "text-lg",
+  md: "text-xl",
+  lg: "text-2xl",
 };
 
 export function Logo({ size = "md", collapsed = false }: LogoProps) {
-  const sizes = sizeMap[size];
-  const width = collapsed ? sizes.collapsedWidth : sizes.width;
-  const height = collapsed ? sizes.collapsedHeight : sizes.height;
+  const textSize = sizeMap[size];
+
+  if (collapsed) {
+    return (
+      <div className="flex items-center justify-center">
+        <span className={`${textSize} font-bold text-white leading-none`}>N</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center">
-      <Image
-        src="/logo-03.png"
-        alt="NIVLE E-Kadi"
-        width={width}
-        height={height}
-        className="object-contain"
-        priority
-      />
+      <span className={`${textSize} font-bold text-white leading-tight tracking-tight`}>
+        NIVLE E-Kadi
+      </span>
     </div>
   );
 }

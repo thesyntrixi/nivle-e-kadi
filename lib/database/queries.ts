@@ -5,6 +5,23 @@ import { query } from '../db';
 import { User, Client, Event, Guest, GuestType, AssignedEvent, StaffEvent } from './types';
 
 // ===== USER QUERIES =====
+
+let ensureProfileColumnsPromise: Promise<void> | null = null;
+
+export async function ensureUserProfileColumns(): Promise<void> {
+  if (!ensureProfileColumnsPromise) {
+    ensureProfileColumnsPromise = (async () => {
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT`);
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT`);
+    })().catch((error) => {
+      ensureProfileColumnsPromise = null;
+      throw error;
+    });
+  }
+
+  return ensureProfileColumnsPromise;
+}
+
 export async function getUserByEmail(email: string) {
   const result = await query('SELECT * FROM users WHERE email = $1', [email]);
   return result.rows[0] as User | undefined;
@@ -19,11 +36,20 @@ export async function getUserWithRole(email: string) {
 }
 
 export async function getUserById(userId: string) {
+  await ensureUserProfileColumns();
+
   const result = await query(
     'SELECT id, email, name, phone, role, is_active, created_at, updated_at FROM users WHERE id = $1',
     [userId]
   );
-  return result.rows[0] as Pick<User, 'id' | 'email' | 'name' | 'phone' | 'role' | 'is_active' | 'created_at' | 'updated_at'> | undefined;
+  const row = result.rows[0];
+  if (!row) return undefined;
+
+  return {
+    ...row,
+    name: row.name ?? null,
+    phone: row.phone ?? null,
+  } as Pick<User, 'id' | 'email' | 'name' | 'phone' | 'role' | 'is_active' | 'created_at' | 'updated_at'>;
 }
 
 export async function getUserByIdWithPassword(userId: string) {
@@ -35,6 +61,8 @@ export async function updateUserProfile(
   userId: string,
   data: { name: string | null; email: string; phone: string | null }
 ) {
+  await ensureUserProfileColumns();
+
   const result = await query(
     `UPDATE users
      SET name = $2, email = $3, phone = $4, updated_at = NOW()

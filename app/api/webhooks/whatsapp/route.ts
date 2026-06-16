@@ -130,11 +130,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const payload = await request.json();
+    const body = await request.json();
 
-    console.log('WhatsApp webhook POST payload:', JSON.stringify(payload));
+    console.log('WEBHOOK RAW PAYLOAD:', JSON.stringify(body, null, 2));
 
-    const entries = Array.isArray(payload?.entry) ? payload.entry : [];
+    const entries = Array.isArray(body?.entry) ? body.entry : [];
 
     for (const entry of entries) {
       const changes = Array.isArray(entry?.changes) ? entry.changes : [];

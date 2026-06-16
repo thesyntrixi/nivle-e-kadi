@@ -6,9 +6,9 @@ interface LogoProps {
 }
 
 const sizeMap = {
-  sm: { width: 120, height: 32, collapsedWidth: 32, collapsedHeight: 32 },
+  sm: { width: 180, height: 70, collapsedWidth: 48, collapsedHeight: 48 },
   md: { width: 150, height: 40, collapsedWidth: 40, collapsedHeight: 40 },
-  lg: { width: 180, height: 48, collapsedWidth: 48, collapsedHeight: 48 },
+  lg: { width: 200, height: 80, collapsedWidth: 48, collapsedHeight: 48 },
 };
 
 export function Logo({ size = "md", collapsed = false }: LogoProps) {
@@ -23,8 +23,7 @@ export function Logo({ size = "md", collapsed = false }: LogoProps) {
         alt="NIVLE E-Kadi"
         width={width}
         height={height}
-        className="h-auto w-auto max-h-full object-contain"
-        style={{ width, height }}
+        className="object-contain"
         priority
       />
     </div>

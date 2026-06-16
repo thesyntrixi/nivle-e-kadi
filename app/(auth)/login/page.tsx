@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Logo } from "@/components/shared/Logo";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -54,7 +54,14 @@ export default function LoginPage() {
       <div className="relative w-full max-w-[420px] animate-fade-in">
         <div className="text-center mb-8 animate-slide-up">
           <div className="flex justify-center mb-6">
-            <Logo size="lg" />
+            <Image
+              src="/logo-03.png"
+              alt="NIVLE E-Kadi"
+              width={200}
+              height={80}
+              className="object-contain"
+              priority
+            />
           </div>
           <p className="text-neutral-muted">Sign in to manage your digital invitations</p>
         </div>

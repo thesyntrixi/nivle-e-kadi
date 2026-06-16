@@ -21,6 +21,7 @@ function getUserId(request: NextRequest): string | null {
 function validateEventBody(body: {
   client_id?: string;
   name?: string;
+  family_name?: string;
   type?: string;
   date?: string;
   time?: string;
@@ -34,6 +35,7 @@ function validateEventBody(body: {
   const time = body.time?.trim();
   const venue = body.venue?.trim();
   const locationLink = body.location_link?.trim();
+  const familyName = body.family_name?.trim();
   const status = body.status?.trim();
 
   if (!body.client_id) {
@@ -59,6 +61,9 @@ function validateEventBody(body: {
   }
   if (venue && venue.length > 100) {
     return 'Venue must be at most 100 characters';
+  }
+  if (familyName && familyName.length > 255) {
+    return 'Family name must be at most 255 characters';
   }
   if (locationLink && !URL_REGEX.test(locationLink)) {
     return 'Location link must be a valid URL';
@@ -157,14 +162,15 @@ export async function PUT(
 
     const result = await query(
       `UPDATE events
-       SET client_id = $2, name = $3, type = $4, date = $5, time = $6,
-           venue = $7, location_link = $8, status = $9, updated_at = NOW()
+       SET client_id = $2, name = $3, family_name = $4, type = $5, date = $6, time = $7,
+           venue = $8, location_link = $9, status = $10, updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
       [
         params.id,
         body.client_id,
         body.name.trim(),
+        body.family_name?.trim() || null,
         body.type as Event['type'],
         body.date.trim(),
         body.time?.trim() || null,

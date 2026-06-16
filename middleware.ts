@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyToken, UserRole } from '@/lib/token';
 
-const publicPaths = ['/login', '/api/auth/login', '/api/auth/logout', '/invite', '/api/webhooks/whatsapp'];
+const publicPaths = ['/login', '/api/auth/login', '/api/auth/logout', '/invite', '/api/webhooks/whatsapp', '/api/public/qr'];
 
 const adminOnlyPaths = [
   '/',

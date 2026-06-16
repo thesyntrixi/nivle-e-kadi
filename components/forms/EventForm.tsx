@@ -20,6 +20,7 @@ export const EVENT_STATUSES: Event['status'][] = ['Draft', 'Active', 'Completed'
 export type EventFormData = {
   client_id: string;
   name: string;
+  family_name: string;
   type: Event['type'];
   date: string;
   time: string;
@@ -75,6 +76,9 @@ function validateForm(data: EventFormData): Partial<Record<keyof EventFormData, 
   }
   if (data.venue.trim().length > 100) {
     errors.venue = 'Venue must be at most 100 characters';
+  }
+  if (data.family_name.trim().length > 255) {
+    errors.family_name = 'Family name must be at most 255 characters';
   }
   if (data.location_link.trim() && !URL_REGEX.test(data.location_link.trim())) {
     errors.location_link = 'Location link must be a valid URL';
@@ -147,6 +151,7 @@ export function EventForm({
   const [clientId, setClientId] = useState(initialData?.client_id ?? '');
   const [clientSearch, setClientSearch] = useState('');
   const [name, setName] = useState(initialData?.name ?? '');
+  const [familyName, setFamilyName] = useState(initialData?.family_name ?? '');
   const [type, setType] = useState<Event['type']>(initialData?.type ?? 'Wedding');
   const [date, setDate] = useState(
     initialData ? formatDateForInput(initialData.date) : ''
@@ -183,6 +188,7 @@ export function EventForm({
     const formData: EventFormData = {
       client_id: clientId,
       name,
+      family_name: familyName,
       type,
       date,
       time,
@@ -269,6 +275,19 @@ export function EventForm({
         required
         disabled={isLoading}
         error={fieldErrors.name}
+      />
+
+      <Input
+        label="Jina la Familia/Mhusika"
+        type="text"
+        value={familyName}
+        onChange={(e) => {
+          setFamilyName(e.target.value);
+          clearFieldError('family_name');
+        }}
+        placeholder='e.g. Harson Festo Moshi & Dativa Antoni Massawe'
+        disabled={isLoading}
+        error={fieldErrors.family_name}
       />
 
       <SelectField

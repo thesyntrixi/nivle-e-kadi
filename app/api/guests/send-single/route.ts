@@ -8,7 +8,8 @@ import { Guest, GuestType } from '@/lib/database/types';
 import { markGuestSent } from '@/lib/database/queries';
 import { formatSwahiliDateTime } from '@/lib/utils/swahili-datetime';
 import { sendSMS, personalizeGuestMessage } from '@/lib/services/sms';
-import { sendWhatsAppInvitation } from '@/lib/services/whatsapp';
+import { sendWhatsAppInvitation, sendWhatsAppQrCheckin } from '@/lib/services/whatsapp';
+import { getPublicGuestQrUrl } from '@/lib/guest-qr';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg']);
@@ -34,7 +35,7 @@ async function getOwnedGuest(userId: string, guestId: string) {
 
 async function getOwnedEvent(userId: string, eventId: string) {
   const result = await query(
-    `SELECT e.id, e.name, e.date, e.time, e.venue, e.location_link
+    `SELECT e.id, e.name, e.family_name, e.date, e.time, e.venue, e.location_link
      FROM events e
      JOIN clients c ON e.client_id = c.id
      WHERE e.id = $1 AND c.user_id = $2 AND c.is_active = true`,
@@ -44,6 +45,7 @@ async function getOwnedEvent(userId: string, eventId: string) {
     | {
         id: string;
         name: string;
+        family_name: string | null;
         date: string;
         time: string | null;
         venue: string | null;
@@ -223,11 +225,14 @@ export async function POST(request: NextRequest) {
       lastError = 'SMS send failed';
     }
 
+    const hostName = event.family_name?.trim() || event.name;
+
     try {
       const waResponse = await sendWhatsAppInvitation(phone, {
         guestName: guest.name,
         guestType,
         eventName: event.name,
+        familyName: hostName,
         dateTime: formattedDateTime,
         venue: venue || 'TBA',
         locationLink,
@@ -236,9 +241,20 @@ export async function POST(request: NextRequest) {
       whatsappSent = true;
       whatsappExternalId = waResponse?.messages?.[0]?.id;
 
-      // TODO: Once "nivle_qr_checkin" template is approved by Meta, send a SECOND
-      // WhatsApp template message here using the guest's QR code image as header.
-      // This will be added as an additional send call after the main invitation.
+      try {
+        const qrImageUrl = getPublicGuestQrUrl(guest.invitation_code);
+        await sendWhatsAppQrCheckin(phone, {
+          guestName: guest.name,
+          guestType,
+          headerImageUrl: qrImageUrl,
+        });
+        console.log('Single send WhatsApp QR checkin sent', {
+          guestId: guest.id,
+          qrImageUrl,
+        });
+      } catch (qrErr) {
+        console.error('Single send WhatsApp QR checkin failed (non-fatal):', qrErr);
+      }
     } catch (err) {
       console.error('Single send WhatsApp error:', err);
       if (!lastError) {

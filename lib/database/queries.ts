@@ -240,9 +240,9 @@ export async function getEventById(eventId: string) {
 
 export async function createEvent(data: Omit<Event, 'id' | 'created_at' | 'updated_at'>) {
   const result = await query(
-    `INSERT INTO events (client_id, name, type, date, time, venue, location_link, status) 
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-    [data.client_id, data.name, data.type, data.date, data.time, data.venue, data.location_link, data.status]
+    `INSERT INTO events (client_id, name, family_name, type, date, time, venue, location_link, status) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [data.client_id, data.name, data.family_name ?? null, data.type, data.date, data.time, data.venue, data.location_link, data.status]
   );
   return result.rows[0] as Event;
 }

@@ -79,6 +79,7 @@ export default function EditEventPage({ params }: EditEventPageProps) {
         body: JSON.stringify({
           client_id: data.client_id,
           name: data.name.trim(),
+          family_name: data.family_name.trim() || undefined,
           type: data.type,
           date: data.date,
           time: data.time || undefined,

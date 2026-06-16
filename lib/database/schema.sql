@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
+  family_name TEXT,
   type VARCHAR(50) NOT NULL CHECK (type IN ('Wedding', 'Birthday', 'Conference', 'Corporate', 'Other')),
   date DATE NOT NULL,
   time TIME,

@@ -28,6 +28,7 @@ export type Event = {
   id: string;
   client_id: string;
   name: string;
+  family_name: string | null;
   type: 'Wedding' | 'Birthday' | 'Conference' | 'Corporate' | 'Other';
   date: Date;
   time: string | null;

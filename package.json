@@ -13,7 +13,8 @@
     "db:add-staff": "ts-node --project tsconfig.scripts.json scripts/add-staff-role.ts",
     "db:add-rsvp": "ts-node --project tsconfig.scripts.json scripts/add-rsvp-columns.ts",
     "db:add-guest-type": "ts-node --project tsconfig.scripts.json scripts/add-guest-type-column.ts",
-    "db:add-message-direction": "ts-node --project tsconfig.scripts.json scripts/add-message-direction.ts"
+    "db:add-message-direction": "ts-node --project tsconfig.scripts.json scripts/add-message-direction.ts",
+    "db:add-family-name": "ts-node --project tsconfig.scripts.json scripts/add-event-family-name.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.0",

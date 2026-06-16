@@ -133,7 +133,7 @@ export async function sendWhatsAppHelloWorld(to: string) {
  * Send the "nivle_event_invitation" template (Swahili, Marketing category).
  * Template structure:
  * - Header: IMAGE
- * - Body variables (in order): {{1}} guest_name, {{2}} event_name,
+ * - Body variables (in order): {{1}} guest_name, {{2}} family/host name,
  *   {{3}} date_time, {{4}} venue, {{5}} location_link
  * - Buttons: Quick Reply "Nitakuwepo ✅" and "Sitakuwepo ❌" (index 0 and 1)
  *
@@ -145,6 +145,7 @@ export async function sendWhatsAppInvitation(
     guestName: string;
     guestType?: GuestType;
     eventName: string;
+    familyName?: string;
     dateTime: string;
     venue: string;
     locationLink: string;
@@ -154,6 +155,7 @@ export async function sendWhatsAppInvitation(
   const formattedPhone = formatPhoneForWhatsApp(to);
   const guestType = params.guestType ?? 'single';
   const displayName = formatGuestDisplayName(params.guestName, guestType);
+  const hostName = params.familyName?.trim() || params.eventName?.trim() || 'TBA';
 
   const requestBody = {
     messaging_product: 'whatsapp',
@@ -176,7 +178,7 @@ export async function sendWhatsAppInvitation(
           type: 'body',
           parameters: [
             { type: 'text', text: displayName },
-            { type: 'text', text: params.eventName },
+            { type: 'text', text: hostName },
             { type: 'text', text: params.dateTime },
             { type: 'text', text: params.venue },
             { type: 'text', text: params.locationLink },
@@ -199,6 +201,66 @@ export async function sendWhatsAppInvitation(
 
   if (!response.ok) {
     console.error('WhatsApp API error:', JSON.stringify(responseData));
+    throw new Error(`WhatsApp API error: ${JSON.stringify(responseData)}`);
+  }
+
+  return responseData;
+}
+
+/**
+ * Send the "nivle_qr_checkin" template (Swahili).
+ * - Header: IMAGE (guest QR code)
+ * - Body variable {{1}}: guest display name
+ */
+export async function sendWhatsAppQrCheckin(
+  to: string,
+  params: {
+    guestName: string;
+    guestType?: GuestType;
+    headerImageUrl: string;
+  }
+) {
+  const formattedPhone = formatPhoneForWhatsApp(to);
+  const displayName = formatGuestDisplayName(params.guestName, params.guestType ?? 'single');
+
+  const requestBody = {
+    messaging_product: 'whatsapp',
+    to: formattedPhone,
+    type: 'template',
+    template: {
+      name: 'nivle_qr_checkin',
+      language: { code: 'sw' },
+      components: [
+        {
+          type: 'header',
+          parameters: [
+            {
+              type: 'image',
+              image: { link: params.headerImageUrl },
+            },
+          ],
+        },
+        {
+          type: 'body',
+          parameters: [{ type: 'text', text: displayName }],
+        },
+      ],
+    },
+  };
+
+  console.log('WhatsApp QR checkin request payload:', JSON.stringify(requestBody));
+
+  const response = await fetch(getApiUrl(), {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(requestBody),
+  });
+
+  const responseData = await response.json();
+  console.log('WhatsApp QR checkin response:', JSON.stringify(responseData));
+
+  if (!response.ok) {
+    console.error('WhatsApp QR API error:', JSON.stringify(responseData));
     throw new Error(`WhatsApp API error: ${JSON.stringify(responseData)}`);
   }
 

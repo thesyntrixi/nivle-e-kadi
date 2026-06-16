@@ -23,6 +23,7 @@ function getUserId(request: NextRequest): string | null {
 function validateEventBody(body: {
   client_id?: string;
   name?: string;
+  family_name?: string;
   type?: string;
   date?: string;
   time?: string;
@@ -36,6 +37,7 @@ function validateEventBody(body: {
   const time = body.time?.trim();
   const venue = body.venue?.trim();
   const locationLink = body.location_link?.trim();
+  const familyName = body.family_name?.trim();
   const status = body.status?.trim();
 
   if (!body.client_id) {
@@ -61,6 +63,9 @@ function validateEventBody(body: {
   }
   if (venue && venue.length > 100) {
     return 'Venue must be at most 100 characters';
+  }
+  if (familyName && familyName.length > 255) {
+    return 'Family name must be at most 255 characters';
   }
   if (locationLink && !URL_REGEX.test(locationLink)) {
     return 'Location link must be a valid URL';
@@ -162,6 +167,7 @@ export async function POST(request: NextRequest) {
     const event = await createEvent({
       client_id: body.client_id,
       name: body.name.trim(),
+      family_name: body.family_name?.trim() || null,
       type: body.type as Event['type'],
       date: new Date(body.date.trim()),
       time: body.time?.trim() || null,

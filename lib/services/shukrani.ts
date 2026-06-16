@@ -4,22 +4,19 @@
 import { GuestType } from '@/lib/database/types';
 import { formatGuestDisplayName } from '@/lib/services/sms';
 
-const SHUKRANI_MARKETING_SUFFIX =
-  ' Kama unalo tukio lako lolote au la mtu mwingine linalokuja la aina yoyote iwe Harusi, birthday, graduation, conference, ticket au mengine - tunahusika na mialiko ya kidigitali ya hali ya juu. Call 0767987878 au kelvin@nivle-ekadi.com - NIVLE E-Kadi';
+const SHUKRANI_SMS_SINGLE =
+  'Habari {name}! Asante kwa kuja kwenye {event_name}. Una tukio jingine? Tunahusika na mialiko ya kidigitali. Call/WA: 0767987878 - NIVLE E-Kadi';
 
-const SHUKRANI_MARKETING_SUFFIX_DOUBLE =
-  ' Kama tukio lako lolote au la mtu mwingine linalokuja la aina yoyote iwe Harusi, birthday, graduation, conference, ticket au mengine - tunahusika na mialiko ya kidigitali ya hali ya juu. Call 0767987878 au kelvin@nivle-ekadi.com - NIVLE E-Kadi';
+const SHUKRANI_SMS_DOUBLE =
+  'Habari {name}! Asante kwa kuja kwenye {event_name}. Mna tukio jingine? Tunahusika na mialiko ya kidigitali. Call/WA: 0767987878 - NIVLE E-Kadi';
 
 export function buildShukraniSmsBody(
   guestName: string,
   guestType: GuestType,
   eventName: string
 ): string {
-  if (guestType === 'double') {
-    return `Habari ${guestName} (Double - watu 2)! Asante sana kwa kuja kwenye ${eventName}. Uwepo wenu ulifanya tukio hili kuwa la kipekee.${SHUKRANI_MARKETING_SUFFIX_DOUBLE}`;
-  }
-
-  return `Habari ${guestName} (Single)! Asante sana kwa kuja kwenye ${eventName}. Uwepo wako ulifanya tukio hili kuwa la kipekee.${SHUKRANI_MARKETING_SUFFIX}`;
+  const template = guestType === 'double' ? SHUKRANI_SMS_DOUBLE : SHUKRANI_SMS_SINGLE;
+  return template.replace('{name}', guestName).replace('{event_name}', eventName);
 }
 
 export function getShukraniSmsPreview(eventName: string): { single: string; double: string } {

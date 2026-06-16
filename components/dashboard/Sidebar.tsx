@@ -43,7 +43,7 @@ export function Sidebar({
       `}
     >
       <div className={`flex items-center ${collapsed && !mobile ? "justify-center p-4" : "justify-between p-5"}`}>
-        <Logo size="sm" showText={!collapsed || mobile} collapsed={collapsed && !mobile} />
+        <Logo size="sm" collapsed={collapsed && !mobile} />
         {!mobile && (
           <button
             onClick={onToggleCollapse}

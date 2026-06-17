@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
+import { checkinQrScanConfig } from '@/components/checkin/qr-scan-config';
 
 type CheckinStats = {
   checkedIn: number;
@@ -162,16 +163,7 @@ export default function CheckinPage() {
     const scanner = new Html5Qrcode('qr-reader');
     scannerRef.current = scanner;
 
-    const scanConfig = {
-      fps: 10,
-      qrbox: { width: 220, height: 220 },
-      aspectRatio: 1.0,
-      videoConstraints: {
-        width: { min: 640, ideal: 1280 },
-        height: { min: 480, ideal: 720 },
-        facingMode: 'environment',
-      },
-    };
+    const scanConfig = checkinQrScanConfig;
 
     scanner
       .start(

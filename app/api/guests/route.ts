@@ -93,6 +93,7 @@ function validateGuestBody(body: {
   email?: string | null;
   phone?: string;
   guest_type?: string;
+  has_whatsapp?: boolean;
 }): { error: string } | { phone: string; email: string | null } {
   const eventId = body.event_id?.trim();
   const name = body.name?.trim();
@@ -192,6 +193,7 @@ export async function POST(request: NextRequest) {
     const phone = validation.phone;
     const guestType =
       body.guest_type === 'double' ? 'double' : ('single' as const);
+    const hasWhatsapp = body.has_whatsapp !== false;
 
     const event = await getOwnedEvent(userId, eventId);
     if (!event) {
@@ -228,6 +230,7 @@ export async function POST(request: NextRequest) {
       opened_at: null,
       status: 'Pending',
       guest_type: guestType,
+      has_whatsapp: hasWhatsapp,
     });
 
     await updateEventGuestCount(eventId);

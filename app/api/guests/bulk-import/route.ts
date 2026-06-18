@@ -14,9 +14,11 @@ import {
   normalizePhoneForComparison,
   updateEventGuestCount,
 } from '@/lib/database/queries';
+import { parseHasWhatsappFromImport } from '@/lib/utils/guest-whatsapp';
 
 const NAME_HEADERS = new Set(['jina', 'name']);
 const PHONE_HEADERS = new Set(['namba', 'namba ya simu', 'phone']);
+const WHATSAPP_HEADERS = new Set(['whatsapp', 'ana whatsapp']);
 
 function getUserId(request: NextRequest): string | null {
   const token = request.cookies.get('auth_token')?.value;
@@ -51,18 +53,20 @@ function normalizeHeader(value: unknown): string {
     .toLowerCase();
 }
 
-function findColumns(headerRow: string[]): { nameCol: number; phoneCol: number } | null {
+function findColumns(headerRow: string[]): { nameCol: number; phoneCol: number; whatsappCol: number } | null {
   let nameCol = -1;
   let phoneCol = -1;
+  let whatsappCol = -1;
 
   headerRow.forEach((cell, index) => {
     const header = normalizeHeader(cell);
     if (NAME_HEADERS.has(header)) nameCol = index;
     if (PHONE_HEADERS.has(header)) phoneCol = index;
+    if (WHATSAPP_HEADERS.has(header)) whatsappCol = index;
   });
 
   if (nameCol < 0 || phoneCol < 0) return null;
-  return { nameCol, phoneCol };
+  return { nameCol, phoneCol, whatsappCol };
 }
 
 export async function POST(request: NextRequest) {
@@ -154,6 +158,10 @@ export async function POST(request: NextRequest) {
 
       const name = String(row[columns.nameCol] ?? '').trim();
       const rawPhone = String(row[columns.phoneCol] ?? '').trim();
+      const hasWhatsapp =
+        columns.whatsappCol >= 0
+          ? parseHasWhatsappFromImport(row[columns.whatsappCol])
+          : true;
 
       if (!name) continue;
 
@@ -184,6 +192,7 @@ export async function POST(request: NextRequest) {
         phone: normalizedPhone,
         guest_type: guestType,
         invitation_code: invitationCode,
+        has_whatsapp: hasWhatsapp,
       });
     }
 

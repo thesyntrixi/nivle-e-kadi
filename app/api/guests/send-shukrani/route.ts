@@ -8,6 +8,7 @@ import { getShukraniGuestBatch, getShukraniGuestCount } from '@/lib/database/que
 import { buildShukraniSmsBody } from '@/lib/services/shukrani';
 import { sendSMS } from '@/lib/services/sms';
 import { sendWhatsAppShukrani } from '@/lib/services/whatsapp';
+import { guestHasWhatsApp } from '@/lib/utils/guest-whatsapp';
 
 const GUEST_DELAY_MS = 400;
 const DEFAULT_BATCH_SIZE = 10;
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (channel === 'whatsapp' || channel === 'both') {
+      if ((channel === 'whatsapp' || channel === 'both') && guestHasWhatsApp(guest.has_whatsapp)) {
         try {
           const waResult = await sendWhatsAppShukrani(phone, {
             guestName: guest.name,

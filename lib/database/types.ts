@@ -63,6 +63,7 @@ export type Guest = {
   rsvp_status?: 'pending' | 'attending' | 'not_attending';
   rsvp_at?: Date | null;
   guest_type?: GuestType;
+  has_whatsapp?: boolean;
   created_at: Date;
   updated_at: Date;
 };

@@ -15,6 +15,7 @@ import {
   formatPhoneForWhatsAppApi,
   normalizePhoneForStorage,
 } from '@/lib/utils/phone';
+import { guestHasWhatsApp } from '@/lib/utils/guest-whatsapp';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg']);
@@ -242,40 +243,43 @@ export async function POST(request: NextRequest) {
     }
 
     const hostName = event.family_name?.trim() || event.name;
+    const canSendWhatsApp = guestHasWhatsApp(guest.has_whatsapp);
 
-    try {
-      console.log('Single send WhatsApp API phone:', whatsAppPhone);
-      const waResponse = await sendWhatsAppInvitation(whatsAppPhone, {
-        guestName: guest.name,
-        guestType,
-        eventName: event.name,
-        familyName: hostName,
-        dateTime: formattedDateTime,
-        venue: venue || 'TBA',
-        locationLink,
-        headerImageUrl: cardImageUrl,
-      });
-      whatsappSent = true;
-      whatsappExternalId = waResponse?.messages?.[0]?.id;
-
+    if (canSendWhatsApp) {
       try {
-        const qrImageUrl = getPublicGuestQrUrl(guest.invitation_code);
-        await sendWhatsAppQrCheckin(whatsAppPhone, {
+        console.log('Single send WhatsApp API phone:', whatsAppPhone);
+        const waResponse = await sendWhatsAppInvitation(whatsAppPhone, {
           guestName: guest.name,
           guestType,
-          headerImageUrl: qrImageUrl,
+          eventName: event.name,
+          familyName: hostName,
+          dateTime: formattedDateTime,
+          venue: venue || 'TBA',
+          locationLink,
+          headerImageUrl: cardImageUrl,
         });
-        console.log('Single send WhatsApp QR checkin sent', {
-          guestId: guest.id,
-          qrImageUrl,
-        });
-      } catch (qrErr) {
-        console.error('Single send WhatsApp QR checkin failed (non-fatal):', qrErr);
-      }
-    } catch (err) {
-      console.error('Single send WhatsApp error:', err);
-      if (!lastError) {
-        lastError = err instanceof Error ? err.message : 'WhatsApp send failed';
+        whatsappSent = true;
+        whatsappExternalId = waResponse?.messages?.[0]?.id;
+
+        try {
+          const qrImageUrl = getPublicGuestQrUrl(guest.invitation_code);
+          await sendWhatsAppQrCheckin(whatsAppPhone, {
+            guestName: guest.name,
+            guestType,
+            headerImageUrl: qrImageUrl,
+          });
+          console.log('Single send WhatsApp QR checkin sent', {
+            guestId: guest.id,
+            qrImageUrl,
+          });
+        } catch (qrErr) {
+          console.error('Single send WhatsApp QR checkin failed (non-fatal):', qrErr);
+        }
+      } catch (err) {
+        console.error('Single send WhatsApp error:', err);
+        if (!lastError) {
+          lastError = err instanceof Error ? err.message : 'WhatsApp send failed';
+        }
       }
     }
 

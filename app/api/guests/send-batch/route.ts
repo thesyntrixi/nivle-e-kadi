@@ -13,6 +13,7 @@ import {
 import { formatSwahiliDateTime } from '@/lib/utils/swahili-datetime';
 import { sendSMS } from '@/lib/services/sms';
 import { sendWhatsAppInvitation } from '@/lib/services/whatsapp';
+import { guestHasWhatsApp } from '@/lib/utils/guest-whatsapp';
 
 const GUEST_DELAY_MS = 400;
 const DEFAULT_BATCH_SIZE = 10;
@@ -176,16 +177,18 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        await sendWhatsAppInvitation(phone, {
-          guestName: guest.name,
-          guestType: guestTypeValue,
-          eventName: event.name,
-          dateTime: formattedDateTime,
-          venue: venue || 'TBA',
-          locationLink,
-          headerImageUrl: cardImageUrl,
-        });
-        whatsappOk = true;
+        if (guestHasWhatsApp(guest.has_whatsapp)) {
+          await sendWhatsAppInvitation(phone, {
+            guestName: guest.name,
+            guestType: guestTypeValue,
+            eventName: event.name,
+            dateTime: formattedDateTime,
+            venue: venue || 'TBA',
+            locationLink,
+            headerImageUrl: cardImageUrl,
+          });
+          whatsappOk = true;
+        }
       } catch (err) {
         console.error('WhatsApp invitation error:', err);
       }

@@ -37,6 +37,21 @@ function GuestTypeBadge({ guestType }: { guestType?: GuestType }) {
   );
 }
 
+function WhatsAppBadge({ hasWhatsapp }: { hasWhatsapp?: boolean }) {
+  const enabled = hasWhatsapp !== false;
+  return (
+    <span
+      className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${
+        enabled
+          ? 'bg-accent-success/20 text-accent-success border-accent-success/40'
+          : 'bg-neutral-muted/20 text-neutral-muted border-neutral-border'
+      }`}
+    >
+      {enabled ? 'WhatsApp' : 'SMS tu'}
+    </span>
+  );
+}
+
 function StatusBadge({ status }: { status: Guest['status'] }) {
   const styles: Record<Guest['status'], string> = {
     Pending: 'bg-neutral-muted/20 text-neutral-muted border-neutral-border',
@@ -181,7 +196,12 @@ export function GuestsTable({
                   className="border-b border-neutral-border/50 last:border-0 hover:bg-surface-hover/50 transition-colors"
                 >
                   <td className="px-4 py-4 text-sm font-medium text-neutral-text">{guest.name}</td>
-                  <td className="px-4 py-4"><GuestTypeBadge guestType={guest.guest_type} /></td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <GuestTypeBadge guestType={guest.guest_type} />
+                      <WhatsAppBadge hasWhatsapp={guest.has_whatsapp} />
+                    </div>
+                  </td>
                   <td className="px-4 py-4 text-sm text-neutral-muted">{guest.phone}</td>
                   <td className="px-4 py-4 text-sm text-neutral-muted">{guest.email ?? '—'}</td>
                   <td className="px-4 py-4 text-sm font-mono text-primary">{guest.invitation_code}</td>
@@ -219,7 +239,10 @@ export function GuestsTable({
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-2">
                   <h3 className="text-h3 text-neutral-text">{guest.name}</h3>
-                  <GuestTypeBadge guestType={guest.guest_type} />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <GuestTypeBadge guestType={guest.guest_type} />
+                    <WhatsAppBadge hasWhatsapp={guest.has_whatsapp} />
+                  </div>
                 </div>
                 <StatusBadge status={guest.status} />
               </div>

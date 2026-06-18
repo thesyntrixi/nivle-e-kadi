@@ -21,6 +21,7 @@ export function AddGuestManualForm({
     email: '',
     phone: '',
     guest_type: 'single' as 'single' | 'double',
+    has_whatsapp: true,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -60,6 +61,7 @@ export function AddGuestManualForm({
           email: email || null,
           phone,
           guest_type: formData.guest_type,
+          has_whatsapp: formData.has_whatsapp,
         }),
       });
 
@@ -70,7 +72,7 @@ export function AddGuestManualForm({
       }
 
       setSuccess('Guest added successfully!');
-      setFormData({ name: '', email: '', phone: '', guest_type: 'single' });
+      setFormData({ name: '', email: '', phone: '', guest_type: 'single', has_whatsapp: true });
 
       setTimeout(() => {
         onSuccess?.();
@@ -144,6 +146,17 @@ export function AddGuestManualForm({
           </label>
         </div>
       </div>
+
+      <label className="flex items-center gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={formData.has_whatsapp}
+          onChange={(e) => setFormData({ ...formData, has_whatsapp: e.target.checked })}
+          disabled={loading}
+          className="h-4 w-4 rounded border-neutral-border text-primary focus:ring-primary"
+        />
+        <span className="text-sm text-neutral-text">Ana WhatsApp?</span>
+      </label>
 
       {error && <Alert variant="error" message={error} />}
       {success && <Alert variant="success" message={success} />}

@@ -402,6 +402,7 @@ export type BulkGuestInsert = {
   phone: string;
   guest_type: GuestType;
   invitation_code: string;
+  has_whatsapp: boolean;
 };
 
 export async function bulkCreateGuests(guests: BulkGuestInsert[]): Promise<number> {
@@ -415,7 +416,7 @@ export async function bulkCreateGuests(guests: BulkGuestInsert[]): Promise<numbe
     const values: unknown[] = [];
     const placeholders = batch
       .map((guest, idx) => {
-        const base = idx * 7;
+        const base = idx * 8;
         values.push(
           guest.event_id,
           guest.name,
@@ -423,14 +424,15 @@ export async function bulkCreateGuests(guests: BulkGuestInsert[]): Promise<numbe
           null,
           guest.invitation_code,
           'Pending',
-          guest.guest_type
+          guest.guest_type,
+          guest.has_whatsapp
         );
-        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7})`;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8})`;
       })
       .join(', ');
 
     await query(
-      `INSERT INTO guests (event_id, name, phone, email, invitation_code, status, guest_type)
+      `INSERT INTO guests (event_id, name, phone, email, invitation_code, status, guest_type, has_whatsapp)
        VALUES ${placeholders}`,
       values
     );
@@ -525,8 +527,8 @@ export async function markGuestSent(guestId: string, success: boolean) {
 
 export async function createGuest(data: Omit<Guest, 'id' | 'created_at' | 'updated_at'>) {
   const result = await query(
-    `INSERT INTO guests (event_id, name, phone, email, invitation_code, status, guest_type)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    `INSERT INTO guests (event_id, name, phone, email, invitation_code, status, guest_type, has_whatsapp)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
     [
       data.event_id,
       data.name,
@@ -535,6 +537,7 @@ export async function createGuest(data: Omit<Guest, 'id' | 'created_at' | 'updat
       data.invitation_code,
       data.status,
       data.guest_type ?? 'single',
+      data.has_whatsapp !== false,
     ]
   );
   return result.rows[0] as Guest;
@@ -613,12 +616,12 @@ export async function getShukraniGuestBatch(
   offset: number
 ) {
   const result = await query(
-    `SELECT id, name, phone, guest_type
+    `SELECT id, name, phone, guest_type, has_whatsapp
      FROM guests
      WHERE event_id = $1
      ORDER BY id ASC
      LIMIT $2 OFFSET $3`,
     [eventId, limit, offset]
   );
-  return result.rows as Pick<Guest, 'id' | 'name' | 'phone' | 'guest_type'>[];
+  return result.rows as Pick<Guest, 'id' | 'name' | 'phone' | 'guest_type' | 'has_whatsapp'>[];
 }

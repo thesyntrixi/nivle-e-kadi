@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Message } from '@/lib/database/types';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { formatEatDateGroup, formatEatTime } from '@/lib/utils/eat-datetime';
 
 interface ChatWindowProps {
   guestId?: string;
@@ -37,22 +38,11 @@ function StatusIcon({ status, displayStatus }: { status: Message['status']; disp
 }
 
 function formatTime(date: string | Date | null): string {
-  if (!date) return '';
-  return new Date(date).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatEatTime(date);
 }
 
 function formatDateGroup(date: string | Date): string {
-  const d = new Date(date);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  return formatEatDateGroup(date);
 }
 
 function groupMessagesByDate(messages: (Message & { display_status?: string })[]) {

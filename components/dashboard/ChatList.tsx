@@ -1,6 +1,7 @@
 'use client';
 
 import { Spinner } from '@/components/ui/Spinner';
+import { formatEatListTime } from '@/lib/utils/eat-datetime';
 
 export interface Conversation {
   guest_id: string;
@@ -36,18 +37,7 @@ function getInitials(name: string): string {
 }
 
 function formatListTime(date?: Date | string): string {
-  if (!date) return '';
-  const d = new Date(date);
-  const now = new Date();
-  const today = now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (d.toDateString() === today) {
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  }
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatEatListTime(date);
 }
 
 function truncate(text: string, max = 45): string {

@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS card_templates (
   file_type VARCHAR(20) CHECK (file_type IN ('PNG', 'JPG', 'PDF')),
   width INT,
   height INT,
+  show_on_website BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

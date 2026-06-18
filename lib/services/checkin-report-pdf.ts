@@ -6,6 +6,7 @@ import autoTable from 'jspdf-autotable';
 import { Event, GuestType } from '@/lib/database/types';
 import { CheckinReportGuestRow } from '@/lib/database/queries';
 import { formatSwahiliDateTime } from '@/lib/utils/swahili-datetime';
+import { EAT_TIMEZONE, EAT_LOCALE, formatEatTime } from '@/lib/utils/eat-datetime';
 
 type JsPdfWithAutoTable = jsPDF & { lastAutoTable?: { finalY: number } };
 
@@ -15,14 +16,11 @@ function guestTypeLabel(guestType: GuestType | undefined): string {
 
 function formatCheckinTime(value: Date | string | null): string {
   if (!value) return '-';
-  return new Date(value).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatEatTime(value) || '-';
 }
 
 function formatGeneratedAt(): string {
-  return formatSwahiliDateTime(new Date());
+  return new Date().toLocaleString(EAT_LOCALE, { timeZone: EAT_TIMEZONE });
 }
 
 export function generateCheckinReportPdf(

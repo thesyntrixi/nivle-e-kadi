@@ -9,6 +9,7 @@ import { Alert } from '@/components/ui/Alert';
 import { GuestType } from '@/lib/database/types';
 import { getGuestTypeBadgeLabel, guestTypeBadgeClass } from '@/lib/guest-type';
 import { checkinQrScanConfig } from '@/components/checkin/qr-scan-config';
+import { formatEatTime } from '@/lib/utils/eat-datetime';
 
 type CheckinResult = {
   success: boolean;
@@ -38,11 +39,7 @@ function extractCode(decodedText: string): string {
 }
 
 function formatCheckinTime(iso?: string | null): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatEatTime(iso ?? null);
 }
 
 function GuestTypeResultBadge({ guestType }: { guestType?: GuestType }) {

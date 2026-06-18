@@ -15,7 +15,8 @@
     "db:add-guest-type": "ts-node --project tsconfig.scripts.json scripts/add-guest-type-column.ts",
     "db:add-message-direction": "ts-node --project tsconfig.scripts.json scripts/add-message-direction.ts",
     "db:add-family-name": "ts-node --project tsconfig.scripts.json scripts/add-event-family-name.ts",
-    "db:add-user-profile": "ts-node --project tsconfig.scripts.json scripts/add-user-profile-columns.ts"
+    "db:add-user-profile": "ts-node --project tsconfig.scripts.json scripts/add-user-profile-columns.ts",
+    "db:add-card-show-on-website": "ts-node --project tsconfig.scripts.json scripts/add-card-show-on-website.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.0",

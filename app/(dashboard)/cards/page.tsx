@@ -29,6 +29,7 @@ function CardsPageContent() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [filterEvent, setFilterEvent] = useState('');
 
   const fetchCards = useCallback(async () => {
@@ -102,6 +103,46 @@ function CardsPageContent() {
       throw err;
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleVisibilityChange(id: string, showOnWebsite: boolean) {
+    setTogglingId(id);
+    setError('');
+
+    const previous = cards.find((c) => c.id === id)?.show_on_website;
+    setCards((prev) =>
+      prev.map((card) =>
+        card.id === id ? { ...card, show_on_website: showOnWebsite } : card
+      )
+    );
+
+    try {
+      const response = await fetch(`/api/cards/${id}/visibility`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ show_on_website: showOnWebsite }),
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        setCards((prev) =>
+          prev.map((card) =>
+            card.id === id ? { ...card, show_on_website: previous ?? false } : card
+          )
+        );
+        setError(data.error || 'Failed to update card visibility.');
+      }
+    } catch (err) {
+      console.error('Update visibility error:', err);
+      setCards((prev) =>
+        prev.map((card) =>
+          card.id === id ? { ...card, show_on_website: previous ?? false } : card
+        )
+      );
+      setError('Failed to update card visibility.');
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -221,7 +262,9 @@ function CardsPageContent() {
         <CardsGrid
           cards={cards}
           onDelete={handleDelete}
+          onVisibilityChange={handleVisibilityChange}
           deletingId={deletingId}
+          togglingId={togglingId}
         />
       )}
 

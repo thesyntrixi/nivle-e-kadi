@@ -10,12 +10,15 @@ export type CardItem = CardTemplate & {
   event_name?: string;
   guest_count?: number;
   file_size?: number | null;
+  show_on_website?: boolean;
 };
 
 interface CardsGridProps {
   cards: CardItem[];
   onDelete: (id: string) => Promise<void>;
+  onVisibilityChange: (id: string, showOnWebsite: boolean) => Promise<void>;
   deletingId?: string | null;
+  togglingId?: string | null;
 }
 
 function formatDate(date: string | Date): string {
@@ -65,7 +68,13 @@ function CardThumbnail({ card }: { card: CardItem }) {
   );
 }
 
-export function CardsGrid({ cards, onDelete, deletingId = null }: CardsGridProps) {
+export function CardsGrid({
+  cards,
+  onDelete,
+  onVisibilityChange,
+  deletingId = null,
+  togglingId = null,
+}: CardsGridProps) {
   if (cards.length === 0) {
     return (
       <Card padding="lg" className="text-center">
@@ -109,6 +118,16 @@ export function CardsGrid({ cards, onDelete, deletingId = null }: CardsGridProps
               <FileTypeBadge type={card.file_type} />
             </div>
 
+            <span
+              className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${
+                card.show_on_website
+                  ? 'bg-accent-success/15 text-accent-success border-accent-success/30'
+                  : 'bg-surface-hover text-neutral-muted border-neutral-border'
+              }`}
+            >
+              {card.show_on_website ? 'Inaonekana' : 'Imefichwa'}
+            </span>
+
             {card.event_name && (
               <p className="text-small text-neutral-muted truncate">
                 <span className="text-neutral-text font-medium">Event:</span>{' '}
@@ -119,6 +138,26 @@ export function CardsGrid({ cards, onDelete, deletingId = null }: CardsGridProps
             <p className="text-small text-neutral-muted">
               Uploaded {formatDate(card.created_at)}
             </p>
+
+            <label className="flex items-center justify-between gap-3 pt-1 cursor-pointer">
+              <span className="text-small text-neutral-text">Onyesha kwenye Website</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!card.show_on_website}
+                disabled={togglingId === card.id}
+                onClick={() => onVisibilityChange(card.id, !card.show_on_website)}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 disabled:opacity-50 ${
+                  card.show_on_website ? 'bg-accent-success' : 'bg-neutral-border'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                    card.show_on_website ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </label>
           </div>
 
           <div className="flex gap-2 mt-4 pt-4 border-t border-neutral-border/50">

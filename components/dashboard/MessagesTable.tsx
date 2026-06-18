@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { MessageWithGuest } from '@/app/api/messages/route';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { formatEatDateTime } from '@/lib/utils/eat-datetime';
 
 interface MessagesTableProps {
   messages: MessageWithGuest[];
@@ -36,12 +37,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function formatDate(date: string | Date | null): string {
   if (!date) return '—';
-  return new Date(date).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatEatDateTime(date) || '—';
 }
 
 function previewText(text: string, max = 50): string {

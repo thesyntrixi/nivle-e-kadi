@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { checkinQrScanConfig } from '@/components/checkin/qr-scan-config';
+import { formatEatTime } from '@/lib/utils/eat-datetime';
 
 type CheckinStats = {
   checkedIn: number;
@@ -38,11 +39,7 @@ function extractCode(decodedText: string): string {
 }
 
 function formatCheckinTime(iso?: string | null): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatEatTime(iso ?? null);
 }
 
 function GuestTypeResultBadge({ guestType }: { guestType?: GuestType }) {

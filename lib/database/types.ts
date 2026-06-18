@@ -89,6 +89,7 @@ export type CardTemplate = {
   file_type: 'PNG' | 'JPG' | 'PDF';
   width: number | null;
   height: number | null;
+  show_on_website?: boolean;
   created_at: Date;
 };
 

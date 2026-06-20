@@ -47,7 +47,7 @@ export async function generateCardWithQR(
     }
 
     const left = Math.max(0, cardWidth - paddedQrSize - EDGE_OFFSET);
-    const top = Math.max(0, cardHeight - paddedQrSize - EDGE_OFFSET);
+    const top = Math.max(0, cardHeight - paddedQrSize - 60);
 
     return await sharp(cardBuffer)
       .composite([{ input: qrWithBackground, left, top }])

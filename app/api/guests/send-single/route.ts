@@ -8,14 +8,14 @@ import { Guest, GuestType } from '@/lib/database/types';
 import { markGuestSent } from '@/lib/database/queries';
 import { formatSwahiliDateTime } from '@/lib/utils/swahili-datetime';
 import { sendSMS, personalizeGuestMessage } from '@/lib/services/sms';
-import { sendWhatsAppInvitation, sendWhatsAppQrCheckin } from '@/lib/services/whatsapp';
-import { getPublicGuestQrUrl } from '@/lib/guest-qr';
+import { sendWhatsAppInvitation } from '@/lib/services/whatsapp';
 import {
   formatPhoneForSmsApi,
   formatPhoneForWhatsAppApi,
   normalizePhoneForStorage,
 } from '@/lib/utils/phone';
 import { guestHasWhatsApp } from '@/lib/utils/guest-whatsapp';
+import { generateCardWithQR } from '@/lib/utils/card-with-qr';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg']);
@@ -244,6 +244,26 @@ export async function POST(request: NextRequest) {
 
     const hostName = event.family_name?.trim() || event.name;
     const canSendWhatsApp = guestHasWhatsApp(guest.has_whatsapp);
+    let whatsappHeaderImageUrl = cardImageUrl;
+
+    if (canSendWhatsApp && cardImageUrl) {
+      const cardWithQr = await generateCardWithQR(cardImageUrl, guest.invitation_code);
+      if (cardWithQr) {
+        try {
+          const qrCardBlob = await put(
+            `cards/qr-${guest.id}-${Date.now()}.png`,
+            cardWithQr,
+            {
+              access: 'public',
+              contentType: 'image/png',
+            }
+          );
+          whatsappHeaderImageUrl = qrCardBlob.url;
+        } catch (uploadErr) {
+          console.error('Failed to upload card with QR overlay:', uploadErr);
+        }
+      }
+    }
 
     if (canSendWhatsApp) {
       try {
@@ -256,25 +276,10 @@ export async function POST(request: NextRequest) {
           dateTime: formattedDateTime,
           venue: venue || 'TBA',
           locationLink,
-          headerImageUrl: cardImageUrl,
+          headerImageUrl: whatsappHeaderImageUrl,
         });
         whatsappSent = true;
         whatsappExternalId = waResponse?.messages?.[0]?.id;
-
-        try {
-          const qrImageUrl = getPublicGuestQrUrl(guest.invitation_code);
-          await sendWhatsAppQrCheckin(whatsAppPhone, {
-            guestName: guest.name,
-            guestType,
-            headerImageUrl: qrImageUrl,
-          });
-          console.log('Single send WhatsApp QR checkin sent', {
-            guestId: guest.id,
-            qrImageUrl,
-          });
-        } catch (qrErr) {
-          console.error('Single send WhatsApp QR checkin failed (non-fatal):', qrErr);
-        }
       } catch (err) {
         console.error('Single send WhatsApp error:', err);
         if (!lastError) {
@@ -309,9 +314,10 @@ export async function POST(request: NextRequest) {
     const updatedGuest = await markGuestSent(guest.id, overallSuccess);
 
     if (overallSuccess && cardImageUrl) {
+      const savedCardUrl = whatsappHeaderImageUrl ?? cardImageUrl;
       await query(
         `UPDATE guests SET personalized_card_url = $2, updated_at = NOW() WHERE id = $1`,
-        [guest.id, cardImageUrl]
+        [guest.id, savedCardUrl]
       );
     }
 
@@ -320,7 +326,7 @@ export async function POST(request: NextRequest) {
       sms_sent: smsSent,
       whatsapp_sent: whatsappSent,
       guest_status: updatedGuest.status,
-      card_image_url: cardImageUrl,
+      card_image_url: whatsappHeaderImageUrl ?? cardImageUrl,
       error: overallSuccess ? undefined : lastError || 'Failed to send invitation',
     });
   } catch (error) {

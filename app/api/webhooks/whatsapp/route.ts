@@ -36,25 +36,27 @@ async function inboundMessageExists(externalId: string): Promise<boolean> {
 }
 
 async function logPhoneMatchingDebug(rawFrom: string) {
-  console.log('WhatsApp inbound: Meta raw from phone (exact, unchanged):', rawFrom);
-  console.log('WhatsApp inbound: Meta raw from phone (JSON):', JSON.stringify(rawFrom));
+  console.log('WhatsApp inbound: matching guest', {
+    channel: 'whatsapp',
+    phone: `***${String(rawFrom).slice(-3)}`,
+  });
 
   const guestPhonesResult = await query(
     'SELECT phone FROM guests ORDER BY created_at DESC LIMIT 20'
   );
   console.log('WhatsApp inbound: sample guest phones in DB (limit 20):', {
     count: guestPhonesResult.rows.length,
-    phones: guestPhonesResult.rows.map((row: { phone: string }) => row.phone),
   });
 
-  console.log('WhatsApp inbound: getGuestByPhone input:', rawFrom);
+  console.log('WhatsApp inbound: getGuestByPhone lookup', {
+    phone: `***${String(rawFrom).slice(-3)}`,
+  });
   const guest = await getGuestByPhone(rawFrom);
   console.log('WhatsApp inbound: getGuestByPhone result:', guest
     ? {
         id: guest.id,
-        name: guest.name,
-        phone: guest.phone,
         event_id: guest.event_id,
+        phone: `***${String(guest.phone).slice(-3)}`,
       }
     : null);
 
@@ -68,30 +70,33 @@ async function handleInboundTextMessage(message: Record<string, unknown>) {
   const messageType = message.type as string | undefined;
 
   console.log('WhatsApp inbound: processing text message', {
-    rawFromExact: from,
+    channel: 'whatsapp',
+    phone: from ? `***${String(from).slice(-3)}` : undefined,
     messageType,
     externalId,
     hasBody: Boolean(textBody?.trim()),
   });
 
   if (messageType !== 'text') {
-    console.log('WhatsApp inbound: skipped non-text message', { messageType, from });
+    console.log('WhatsApp inbound: skipped non-text message', { messageType });
     return;
   }
 
   if (!from || !textBody?.trim()) {
-    console.log('WhatsApp inbound: missing from or text body', { from, textBody });
+    console.log('WhatsApp inbound: missing from or text body');
     return;
   }
 
   if (externalId && (await inboundMessageExists(externalId))) {
-    console.log('WhatsApp inbound: duplicate message ignored', { externalId, from });
+    console.log('WhatsApp inbound: duplicate message ignored', { externalId });
     return;
   }
 
   const guest = await logPhoneMatchingDebug(from);
   if (!guest) {
-    console.log('WhatsApp inbound: no guest found for phone', { from, textPreview: textBody.trim().slice(0, 80) });
+    console.log('WhatsApp inbound: no guest found', {
+      phone: `***${String(from).slice(-3)}`,
+    });
     return;
   }
 
@@ -106,8 +111,8 @@ async function handleInboundTextMessage(message: Record<string, unknown>) {
 
   console.log('WhatsApp inbound message recorded', {
     guestId: guest.id,
-    guestName: guest.name,
-    phone: from,
+    eventId: guest.event_id,
+    channel: 'whatsapp',
     externalId,
   });
 }
@@ -131,8 +136,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    console.log('WEBHOOK RAW PAYLOAD:', JSON.stringify(body, null, 2));
 
     const entries = Array.isArray(body?.entry) ? body.entry : [];
 
@@ -173,13 +176,16 @@ export async function POST(request: NextRequest) {
 
           const rsvpStatus = parseRsvpFromButton(title, id);
           if (!rsvpStatus) {
-            console.log('WhatsApp RSVP: unrecognized button reply', { from, title, id });
+            console.log('WhatsApp RSVP: unrecognized button reply', { title, id });
             continue;
           }
 
           const guest = await getGuestByPhone(from);
           if (!guest) {
-            console.log('WhatsApp RSVP: no guest found for phone', { from, rsvpStatus });
+            console.log('WhatsApp RSVP: no guest found', {
+              phone: `***${String(from).slice(-3)}`,
+              rsvpStatus,
+            });
             continue;
           }
 
@@ -187,8 +193,6 @@ export async function POST(request: NextRequest) {
           if (currentRsvp !== 'pending') {
             console.log('WhatsApp RSVP: ignored duplicate RSVP response', {
               guestId: guest.id,
-              guestName: guest.name,
-              phone: from,
               existingRsvp: currentRsvp,
               attemptedRsvp: rsvpStatus,
             });
@@ -198,8 +202,6 @@ export async function POST(request: NextRequest) {
           await updateGuestRsvp(guest.id, rsvpStatus);
           console.log('WhatsApp RSVP recorded', {
             guestId: guest.id,
-            guestName: guest.name,
-            phone: from,
             rsvpStatus,
           });
         }
@@ -212,7 +214,6 @@ export async function POST(request: NextRequest) {
           } catch (inboundError) {
             console.error('WhatsApp inbound text insert failed:', {
               error: inboundError instanceof Error ? inboundError.message : inboundError,
-              from: message.from,
               externalId: message.id,
               hint: 'Ensure production DB has direction column (npm run db:add-message-direction)',
             });

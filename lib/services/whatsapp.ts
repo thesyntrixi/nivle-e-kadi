@@ -65,7 +65,10 @@ export async function sendWhatsApp(
       text: { body: textMessage.substring(0, 4096) },
     };
 
-    console.log('WhatsApp text request payload:', JSON.stringify(requestBody));
+    console.log('WhatsApp text request sent', {
+      channel: 'whatsapp',
+      phone: `***${formattedPhone.slice(-3)}`,
+    });
 
     const response = await fetch(getApiUrl(), {
       method: 'POST',
@@ -74,10 +77,19 @@ export async function sendWhatsApp(
     });
 
     const responseData = await response.json();
-    console.log('WhatsApp text response:', JSON.stringify(responseData));
+    console.log('WhatsApp text response', {
+      channel: 'whatsapp',
+      status: response.status,
+      messageId: responseData?.messages?.[0]?.id,
+    });
 
     if (!response.ok) {
-      console.error('WhatsApp API error:', JSON.stringify(responseData));
+      console.error('WhatsApp API error', {
+        channel: 'whatsapp',
+        status: response.status,
+        code: responseData?.error?.code,
+        title: responseData?.error?.type || responseData?.error?.error_user_title,
+      });
       const errMsg =
         responseData?.error?.message ||
         JSON.stringify(responseData) ||
@@ -111,7 +123,10 @@ export async function sendWhatsAppHelloWorld(to: string) {
     },
   };
 
-  console.log('WhatsApp request payload:', JSON.stringify(requestBody));
+  console.log('WhatsApp hello_world request sent', {
+    channel: 'whatsapp',
+    phone: `***${formattedPhone.slice(-3)}`,
+  });
 
   const response = await fetch(getApiUrl(), {
     method: 'POST',
@@ -120,10 +135,19 @@ export async function sendWhatsAppHelloWorld(to: string) {
   });
 
   const responseData = await response.json();
-  console.log('WhatsApp response:', JSON.stringify(responseData));
+  console.log('WhatsApp hello_world response', {
+    channel: 'whatsapp',
+    status: response.status,
+    messageId: responseData?.messages?.[0]?.id,
+  });
 
   if (!response.ok) {
-    console.error('WhatsApp API error:', JSON.stringify(responseData));
+    console.error('WhatsApp API error', {
+      channel: 'whatsapp',
+      status: response.status,
+      code: responseData?.error?.code,
+      title: responseData?.error?.type || responseData?.error?.error_user_title,
+    });
     throw new Error(`WhatsApp API error: ${JSON.stringify(responseData)}`);
   }
 
@@ -154,7 +178,10 @@ export async function sendWhatsAppInvitation(
   }
 ) {
   const formattedPhone = formatPhoneForWhatsApp(to);
-  console.log('WhatsApp invitation API phone:', formattedPhone);
+  console.log('WhatsApp invitation request sent', {
+    channel: 'whatsapp',
+    phone: `***${formattedPhone.slice(-3)}`,
+  });
   const guestType = params.guestType ?? 'single';
   const displayName = formatGuestDisplayName(params.guestName, guestType);
   const hostName = params.familyName?.trim() || params.eventName?.trim() || 'TBA';
@@ -190,8 +217,6 @@ export async function sendWhatsAppInvitation(
     },
   };
 
-  console.log('WhatsApp invitation request payload:', JSON.stringify(requestBody));
-
   const response = await fetch(getApiUrl(), {
     method: 'POST',
     headers: getHeaders(),
@@ -199,10 +224,19 @@ export async function sendWhatsAppInvitation(
   });
 
   const responseData = await response.json();
-  console.log('WhatsApp invitation response:', JSON.stringify(responseData));
+  console.log('WhatsApp invitation response', {
+    channel: 'whatsapp',
+    status: response.status,
+    messageId: responseData?.messages?.[0]?.id,
+  });
 
   if (!response.ok) {
-    console.error('WhatsApp API error:', JSON.stringify(responseData));
+    console.error('WhatsApp API error', {
+      channel: 'whatsapp',
+      status: response.status,
+      code: responseData?.error?.code,
+      title: responseData?.error?.type || responseData?.error?.error_user_title,
+    });
     throw new Error(`WhatsApp API error: ${JSON.stringify(responseData)}`);
   }
 
@@ -250,7 +284,10 @@ export async function sendWhatsAppQrCheckin(
     },
   };
 
-  console.log('WhatsApp QR checkin request payload:', JSON.stringify(requestBody));
+  console.log('WhatsApp QR checkin request sent', {
+    channel: 'whatsapp',
+    phone: `***${formattedPhone.slice(-3)}`,
+  });
 
   const response = await fetch(getApiUrl(), {
     method: 'POST',
@@ -259,10 +296,19 @@ export async function sendWhatsAppQrCheckin(
   });
 
   const responseData = await response.json();
-  console.log('WhatsApp QR checkin response:', JSON.stringify(responseData));
+  console.log('WhatsApp QR checkin response', {
+    channel: 'whatsapp',
+    status: response.status,
+    messageId: responseData?.messages?.[0]?.id,
+  });
 
   if (!response.ok) {
-    console.error('WhatsApp QR API error:', JSON.stringify(responseData));
+    console.error('WhatsApp QR API error', {
+      channel: 'whatsapp',
+      status: response.status,
+      code: responseData?.error?.code,
+      title: responseData?.error?.type || responseData?.error?.error_user_title,
+    });
     throw new Error(`WhatsApp API error: ${JSON.stringify(responseData)}`);
   }
 
@@ -309,7 +355,10 @@ export async function sendWhatsAppShukrani(
       },
     };
 
-    console.log('WhatsApp shukrani request payload:', JSON.stringify(requestBody));
+    console.log('WhatsApp shukrani request sent', {
+      channel: 'whatsapp',
+      phone: `***${formattedPhone.slice(-3)}`,
+    });
 
     const response = await fetch(getApiUrl(), {
       method: 'POST',
@@ -318,10 +367,19 @@ export async function sendWhatsAppShukrani(
     });
 
     const responseData = await response.json();
-    console.log('WhatsApp shukrani response:', JSON.stringify(responseData));
+    console.log('WhatsApp shukrani response', {
+      channel: 'whatsapp',
+      status: response.status,
+      messageId: responseData?.messages?.[0]?.id,
+    });
 
     if (!response.ok) {
-      console.error('WhatsApp shukrani API error:', JSON.stringify(responseData));
+      console.error('WhatsApp shukrani API error', {
+        channel: 'whatsapp',
+        status: response.status,
+        code: responseData?.error?.code,
+        title: responseData?.error?.type || responseData?.error?.error_user_title,
+      });
       const errMsg =
         responseData?.error?.message ||
         JSON.stringify(responseData) ||

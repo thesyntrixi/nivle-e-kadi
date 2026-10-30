@@ -108,7 +108,10 @@ export async function sendSMS(
     }
 
     const formattedPhone = digits;
-    console.log('NextSms API phone:', formattedPhone);
+    console.log('NextSms send', {
+      channel: 'sms',
+      phone: `***${formattedPhone.slice(-3)}`,
+    });
     const reference = `nivle-${Date.now()}`;
     const textMessage =
       options?.guestName !== undefined
@@ -122,8 +125,6 @@ export async function sendSMS(
       reference,
     };
 
-    console.log('NextSms request payload:', JSON.stringify(requestBody));
-
     const response = await fetch(NEXTSMS_API_URL, {
       method: 'POST',
       headers: {
@@ -135,7 +136,11 @@ export async function sendSMS(
     });
 
     const data = await response.json().catch(() => ({}));
-    console.log('NextSms response:', JSON.stringify(data));
+    console.log('NextSms response', {
+      channel: 'sms',
+      status: response.status,
+      messageId: data.messageId || data.id,
+    });
 
     if (response.ok && data.success !== false) {
       const id = data.messageId || data.id || reference;
@@ -146,7 +151,12 @@ export async function sendSMS(
       };
     }
 
-    console.error('NextSms API error:', JSON.stringify(data));
+    console.error('NextSms API error', {
+      channel: 'sms',
+      status: response.status,
+      code: data.code || data.errorCode,
+      title: data.message || data.error,
+    });
 
     const errorMessage =
       data.message || data.error || JSON.stringify(data) || 'SMS service unavailable';

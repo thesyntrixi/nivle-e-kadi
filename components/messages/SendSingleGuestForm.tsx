@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
 import { Input } from '@/components/ui/Input';
-import { Spinner } from '@/components/ui/Spinner';
 
 const DEFAULT_CUSTOM_MESSAGE =
   'Habari [JINA]! Tafadhali pokea mwaliko wako. Fika na ujumbe huu - utakaguliwa mlangoni. NIVLE E-Kadi';
@@ -514,10 +513,7 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
           {error && <Alert variant="error" message={error} />}
 
           {progress && (
-            <p className="text-small text-neutral-text inline-flex items-center gap-2">
-              <Spinner size="sm" />
-              {progress}
-            </p>
+            <p className="text-small text-neutral-text">{progress}</p>
           )}
 
           {results.length > 0 && (
@@ -541,6 +537,7 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
             onClick={handleSend}
             loading={sending}
             disabled={
+              sending ||
               !eventId ||
               selectedGuestIds.length === 0 ||
               !customMessage.trim() ||
@@ -548,14 +545,7 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
             }
             fullWidth
           >
-            {sending ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner size="sm" />
-                Inatuma...
-              </span>
-            ) : (
-              'Tuma'
-            )}
+            {sending ? 'Inatuma...' : 'Tuma'}
           </Button>
         </div>
       )}

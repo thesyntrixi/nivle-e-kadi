@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
@@ -224,7 +225,13 @@ async function sendWhatsAppImageWithCaption(
   );
 
   const responseData = await response.json();
-  console.log('WhatsApp custom image response:', JSON.stringify(responseData));
+  console.log('WhatsApp custom image response', {
+    channel: 'whatsapp',
+    status: response.status,
+    messageId: responseData?.messages?.[0]?.id,
+    code: responseData?.error?.code,
+    title: responseData?.error?.type || responseData?.error?.error_user_title,
+  });
 
   if (!response.ok) {
     const errMsg =
@@ -329,7 +336,12 @@ async function sendToGuest(params: {
 
   if (wantsSms) {
     try {
-      console.log('Single send SMS API phone:', smsPhone);
+      console.log('Single send SMS', {
+        channel: 'sms',
+        guestId: guest.id,
+        eventId: guest.event_id,
+        phone: `***${smsPhone.slice(-3)}`,
+      });
       const smsResult = hasCustomMessage
         ? await sendSMS(smsPhone, personalizedCustom)
         : await sendSMS(smsPhone, smsTemplate, {
@@ -356,7 +368,12 @@ async function sendToGuest(params: {
 
   if (canSendWhatsApp && whatsappHeaderImageUrl) {
     try {
-      console.log('Single send WhatsApp API phone:', whatsAppPhone);
+      console.log('Single send WhatsApp', {
+        channel: 'whatsapp',
+        guestId: guest.id,
+        eventId: guest.event_id,
+        phone: `***${whatsAppPhone.slice(-3)}`,
+      });
 
       if (hasCustomMessage) {
         const imageResult = await sendWhatsAppImageWithCaption(

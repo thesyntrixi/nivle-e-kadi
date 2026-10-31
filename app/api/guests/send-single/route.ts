@@ -6,7 +6,7 @@ import { put } from '@vercel/blob';
 import { verifyToken } from '@/lib/token';
 import { query } from '@/lib/db';
 import { Guest, GuestType } from '@/lib/database/types';
-import { markGuestSent } from '@/lib/database/queries';
+import { guestHasInboundWithin24Hours, markGuestSent } from '@/lib/database/queries';
 import { formatSwahiliDateTime } from '@/lib/utils/swahili-datetime';
 import {
   sendSMS,
@@ -25,8 +25,14 @@ import { generateCardWithQR } from '@/lib/utils/card-with-qr';
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg']);
 const WHATSAPP_API_VERSION = 'v21.0';
+const NO_WHATSAPP_TEMPLATE_REASON =
+  'WhatsApp haijatumwa: aina hii ya tukio haina template bado. Tumia SMS tu, au mgeni ajibu kwanza.';
+const WHATSAPP_SEND_FAILED_REASON = 'WhatsApp imeshindwa kutumwa';
+const SMS_SEND_FAILED_REASON = 'SMS imeshindwa kutumwa';
+const LOCATION_LINK_FALLBACK = 'Hakuna ramani';
 
 type SendChannel = 'whatsapp' | 'sms' | 'both';
+type ChannelFeedback = 'ok' | 'failed' | 'skipped' | 'not_requested' | 'no_whatsapp';
 
 type GuestSendResult = {
   guest_id: string;
@@ -34,6 +40,9 @@ type GuestSendResult = {
   success: boolean;
   sms_sent: boolean;
   whatsapp_sent: boolean;
+  sms_result?: ChannelFeedback;
+  whatsapp_result?: ChannelFeedback;
+  channel_summary?: string;
   guest_status?: string;
   card_image_url?: string;
   error?: string;
@@ -60,7 +69,7 @@ async function getOwnedGuest(userId: string, guestId: string) {
 
 async function getOwnedEvent(userId: string, eventId: string) {
   const result = await query(
-    `SELECT e.id, e.name, e.family_name, e.date, e.time, e.venue, e.location_link
+    `SELECT e.id, e.name, e.family_name, e.type, e.date, e.time, e.venue, e.location_link
      FROM events e
      JOIN clients c ON e.client_id = c.id
      WHERE e.id = $1 AND c.user_id = $2 AND c.is_active = true`,
@@ -71,6 +80,7 @@ async function getOwnedEvent(userId: string, eventId: string) {
         id: string;
         name: string;
         family_name: string | null;
+        type: string;
         date: string;
         time: string | null;
         venue: string | null;
@@ -247,6 +257,62 @@ async function sendWhatsAppImageWithCaption(
   };
 }
 
+async function sendAcceptedInvitation(params: {
+  to: string;
+  guestName: string;
+  guestType: GuestType;
+  eventName: string;
+  familyName: string;
+  dateTime: string;
+  venue: string;
+  locationLink: string;
+  headerImageUrl: string;
+}): Promise<{ success: boolean; externalId?: string }> {
+  const waResponse = await sendWhatsAppInvitation(params.to, {
+    guestName: params.guestName,
+    guestType: params.guestType,
+    eventName: params.eventName,
+    familyName: params.familyName,
+    dateTime: params.dateTime,
+    venue: params.venue || 'TBA',
+    locationLink: params.locationLink.trim() || LOCATION_LINK_FALLBACK,
+    headerImageUrl: params.headerImageUrl,
+  });
+  const externalId =
+    typeof waResponse?.messages?.[0]?.id === 'string' ? waResponse.messages[0].id : undefined;
+  if (!externalId) {
+    return { success: false };
+  }
+  return { success: true, externalId };
+}
+
+function buildChannelSummary(input: {
+  wantsSms: boolean;
+  wantsWhatsApp: boolean;
+  hasWhatsApp: boolean;
+  smsSent: boolean;
+  whatsappSent: boolean;
+  whatsappResult: ChannelFeedback;
+  whatsappReason: string;
+}): string {
+  const parts: string[] = [];
+  parts.push(input.wantsSms ? (input.smsSent ? 'SMS: imetumwa' : 'SMS: imeshindwa') : 'SMS: haijaombwa');
+
+  if (!input.wantsWhatsApp) {
+    parts.push('WhatsApp: haijaombwa');
+  } else if (!input.hasWhatsApp) {
+    parts.push('WhatsApp: haina — mgeni hana WhatsApp');
+  } else if (input.whatsappSent) {
+    parts.push('WhatsApp: imetumwa');
+  } else if (input.whatsappResult === 'skipped') {
+    parts.push(`WhatsApp: imerukwa — ${input.whatsappReason}`);
+  } else {
+    parts.push('WhatsApp: imeshindwa');
+  }
+
+  return parts.join('. ');
+}
+
 async function sendToGuest(params: {
   userId: string;
   guestId: string;
@@ -314,9 +380,11 @@ async function sendToGuest(params: {
 
   let smsSent = false;
   let whatsappSent = false;
-  let lastError = '';
   let smsExternalId: string | undefined;
   let whatsappExternalId: string | undefined;
+  let smsResultStatus: ChannelFeedback = wantsSms ? 'failed' : 'not_requested';
+  let whatsappResult: ChannelFeedback = wantsWhatsApp ? 'failed' : 'not_requested';
+  let whatsappReason = '';
 
   const personalizedCustom = hasCustomMessage
     ? applyCustomMessage(params.customMessage!.trim(), guest.name, guestType)
@@ -348,108 +416,160 @@ async function sendToGuest(params: {
             guestName: guest.name,
             guestType,
           });
-      smsSent = smsResult.success;
       smsExternalId = smsResult.externalId;
-      if (!smsResult.success && smsResult.error) {
-        lastError = smsResult.error;
+      if (smsResult.success) {
+        smsSent = true;
+        smsResultStatus = 'ok';
+      } else {
+        smsResultStatus = 'failed';
       }
-    } catch (err) {
-      console.error('Single send SMS error:', err);
-      lastError = 'SMS send failed';
+    } catch {
+      console.error('Single send SMS error');
+      smsResultStatus = 'failed';
     }
   }
 
   const hostName = event.family_name?.trim() || event.name;
+  const isWedding = event.type === 'Wedding';
   let whatsappHeaderImageUrl = params.cardImageUrl;
+  let sentWhatsappContent = whatsappLogContent;
 
   if (canSendWhatsApp && params.cardImageUrl) {
-    whatsappHeaderImageUrl = await overlayQrOnCard(params.cardImageUrl, guest);
-  }
+    let within24Hours = false;
+    if (hasCustomMessage) {
+      try {
+        within24Hours = await guestHasInboundWithin24Hours(guest.id);
+      } catch {
+        console.error('Inbound window check failed', { guestId: guest.id });
+        within24Hours = false;
+      }
+    }
 
-  if (canSendWhatsApp && whatsappHeaderImageUrl) {
-    try {
-      console.log('Single send WhatsApp', {
-        channel: 'whatsapp',
-        guestId: guest.id,
-        eventId: guest.event_id,
-        phone: `***${whatsAppPhone.slice(-3)}`,
-      });
+    const freeFormAllowed = hasCustomMessage && within24Hours;
+    const blockedByEventType = !freeFormAllowed && !isWedding;
 
-      if (hasCustomMessage) {
-        const imageResult = await sendWhatsAppImageWithCaption(
-          whatsAppPhone,
-          whatsappHeaderImageUrl,
-          personalizedCustom
-        );
-        if (imageResult.success) {
-          whatsappSent = true;
-          whatsappExternalId = imageResult.externalId;
-        } else {
-          const waResponse = await sendWhatsAppInvitation(whatsAppPhone, {
+    if (blockedByEventType) {
+      whatsappResult = 'skipped';
+      whatsappReason = NO_WHATSAPP_TEMPLATE_REASON;
+    } else {
+      try {
+        console.log('Single send WhatsApp', {
+          channel: 'whatsapp',
+          guestId: guest.id,
+          eventId: guest.event_id,
+          phone: `***${whatsAppPhone.slice(-3)}`,
+        });
+        whatsappHeaderImageUrl = await overlayQrOnCard(params.cardImageUrl, guest);
+
+        if (freeFormAllowed) {
+          const imageResult = await sendWhatsAppImageWithCaption(
+            whatsAppPhone,
+            whatsappHeaderImageUrl,
+            personalizedCustom
+          );
+          if (imageResult.success) {
+            whatsappSent = true;
+            whatsappResult = 'ok';
+            whatsappExternalId = imageResult.externalId;
+            sentWhatsappContent = personalizedCustom;
+          } else if (isWedding) {
+            const accepted = await sendAcceptedInvitation({
+              to: whatsAppPhone,
+              guestName: guest.name,
+              guestType,
+              eventName: event.name,
+              familyName: hostName,
+              dateTime: formattedDateTime,
+              venue,
+              locationLink,
+              headerImageUrl: whatsappHeaderImageUrl,
+            });
+            if (accepted.success) {
+              whatsappSent = true;
+              whatsappResult = 'ok';
+              whatsappExternalId = accepted.externalId;
+              sentWhatsappContent = `Mwaliko wa ${event.name} — ${formattedDateTime}`;
+            } else {
+              whatsappResult = 'failed';
+              whatsappReason = WHATSAPP_SEND_FAILED_REASON;
+            }
+          } else {
+            whatsappResult = 'failed';
+            whatsappReason = WHATSAPP_SEND_FAILED_REASON;
+          }
+        } else if (isWedding) {
+          const accepted = await sendAcceptedInvitation({
+            to: whatsAppPhone,
             guestName: guest.name,
             guestType,
             eventName: event.name,
             familyName: hostName,
             dateTime: formattedDateTime,
-            venue: venue || 'TBA',
+            venue,
             locationLink,
             headerImageUrl: whatsappHeaderImageUrl,
           });
-          whatsappSent = true;
-          whatsappExternalId = waResponse?.messages?.[0]?.id;
+          if (accepted.success) {
+            whatsappSent = true;
+            whatsappResult = 'ok';
+            whatsappExternalId = accepted.externalId;
+            sentWhatsappContent = `Mwaliko wa ${event.name} — ${formattedDateTime}`;
+          } else {
+            whatsappResult = 'failed';
+            whatsappReason = WHATSAPP_SEND_FAILED_REASON;
+          }
         }
-      } else {
-        const waResponse = await sendWhatsAppInvitation(whatsAppPhone, {
-          guestName: guest.name,
-          guestType,
-          eventName: event.name,
-          familyName: hostName,
-          dateTime: formattedDateTime,
-          venue: venue || 'TBA',
-          locationLink,
-          headerImageUrl: whatsappHeaderImageUrl,
-        });
-        whatsappSent = true;
-        whatsappExternalId = waResponse?.messages?.[0]?.id;
-      }
-    } catch (err) {
-      console.error('Single send WhatsApp error:', err);
-      if (!lastError) {
-        lastError = err instanceof Error ? err.message : 'WhatsApp send failed';
+      } catch {
+        console.error('Single send WhatsApp error');
+        whatsappResult = 'failed';
+        whatsappReason = WHATSAPP_SEND_FAILED_REASON;
       }
     }
   } else if (wantsWhatsApp && !guestHasWhatsApp(guest.has_whatsapp)) {
-    if (!lastError) {
-      lastError = 'Mgeni hana WhatsApp — SMS tu';
-    }
+    whatsappResult = 'no_whatsapp';
+    whatsappReason = 'Mgeni hana WhatsApp — SMS tu';
   }
 
-  if (smsSent) {
+  if (wantsSms) {
     await insertOutboundMessage(
       guest.id,
       guest.event_id,
       'SMS',
-      personalizedSmsContent,
-      true,
-      smsExternalId
+      smsSent ? personalizedSmsContent : SMS_SEND_FAILED_REASON,
+      smsSent,
+      smsSent ? smsExternalId : undefined
     );
   }
 
-  if (whatsappSent) {
+  if (canSendWhatsApp) {
     await insertOutboundMessage(
       guest.id,
       guest.event_id,
       'WhatsApp',
-      whatsappLogContent,
-      true,
-      whatsappExternalId
+      whatsappSent ? sentWhatsappContent : whatsappReason || WHATSAPP_SEND_FAILED_REASON,
+      whatsappSent,
+      whatsappSent ? whatsappExternalId : undefined
     );
   }
 
-  const overallSuccess = smsSent || whatsappSent;
+  const hasWhatsApp = guestHasWhatsApp(guest.has_whatsapp);
+  const whatsappCounts = wantsWhatsApp && hasWhatsApp;
+  const overallSuccess =
+    (wantsSms || whatsappCounts) &&
+    (!wantsSms || smsSent) &&
+    (!whatsappCounts || whatsappSent);
+  const channelSummary = buildChannelSummary({
+    wantsSms,
+    wantsWhatsApp,
+    hasWhatsApp,
+    smsSent,
+    whatsappSent,
+    whatsappResult,
+    whatsappReason,
+  });
   const updatedGuest = await markGuestSent(guest.id, overallSuccess);
 
-  if (overallSuccess && whatsappHeaderImageUrl) {
+  if ((smsSent || whatsappSent) && whatsappHeaderImageUrl) {
     await query(
       `UPDATE guests SET personalized_card_url = $2, updated_at = NOW() WHERE id = $1`,
       [guest.id, whatsappHeaderImageUrl]
@@ -462,9 +582,12 @@ async function sendToGuest(params: {
     success: overallSuccess,
     sms_sent: smsSent,
     whatsapp_sent: whatsappSent,
+    sms_result: smsResultStatus,
+    whatsapp_result: whatsappResult,
+    channel_summary: channelSummary,
     guest_status: updatedGuest.status,
     card_image_url: params.cardImageUrl,
-    error: overallSuccess ? undefined : lastError || 'Failed to send invitation',
+    error: overallSuccess ? undefined : channelSummary,
   };
 }
 
@@ -568,6 +691,9 @@ export async function POST(request: NextRequest) {
         success: first.success,
         sms_sent: first.sms_sent,
         whatsapp_sent: first.whatsapp_sent,
+        sms_result: first.sms_result,
+        whatsapp_result: first.whatsapp_result,
+        channel_summary: first.channel_summary,
         guest_status: first.guest_status,
         card_image_url: cardImageUrl ?? first.card_image_url,
         error: first.error,
@@ -579,6 +705,7 @@ export async function POST(request: NextRequest) {
       success: overallSuccess,
       sms_sent: results.some((r) => r.sms_sent),
       whatsapp_sent: results.some((r) => r.whatsapp_sent),
+      channel_summary: first?.channel_summary,
       card_image_url: cardImageUrl ?? results.find((r) => r.card_image_url)?.card_image_url,
       results,
       summary: {

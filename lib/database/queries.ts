@@ -511,6 +511,20 @@ export async function getEventCardImageUrl(eventId: string): Promise<string | nu
   return (cardResult.rows[0]?.file_url as string) ?? null;
 }
 
+/** True when this guest has an inbound message within the last 24 hours. */
+export async function guestHasInboundWithin24Hours(guestId: string): Promise<boolean> {
+  const result = await query(
+    `SELECT 1
+     FROM messages
+     WHERE guest_id = $1
+       AND direction = 'inbound'
+       AND COALESCE(sent_at, created_at) > NOW() - INTERVAL '24 hours'
+     LIMIT 1`,
+    [guestId]
+  );
+  return result.rows.length > 0;
+}
+
 export async function markGuestSent(guestId: string, success: boolean) {
   const status = success ? 'Sent' : 'Failed';
   const result = await query(

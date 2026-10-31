@@ -345,6 +345,11 @@ export async function createEvent(data: Omit<Event, 'id' | 'created_at' | 'updat
 export function getInvitationCodePrefix(eventType: Event['type']): string {
   const prefixes: Record<Event['type'], string> = {
     Wedding: 'WED',
+    Sendoff: 'SND',
+    Ticket: 'TKT',
+    Graduation: 'GRD',
+    'Kitchen Party': 'KIT',
+    Meeting: 'MTG',
     Birthday: 'BDA',
     Conference: 'CON',
     Corporate: 'COR',

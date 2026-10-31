@@ -15,6 +15,11 @@ import {
 } from '@/lib/services/sms';
 import { sendWhatsAppInvitation } from '@/lib/services/whatsapp';
 import {
+  isTemplateApproved,
+  resolveWhatsAppTemplate,
+  templateBlockedReason,
+} from '@/lib/whatsapp-templates';
+import {
   formatPhoneForSmsApi,
   formatPhoneForWhatsAppApi,
   normalizePhoneForStorage,
@@ -25,8 +30,6 @@ import { generateCardWithQR } from '@/lib/utils/card-with-qr';
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg']);
 const WHATSAPP_API_VERSION = 'v21.0';
-const NO_WHATSAPP_TEMPLATE_REASON =
-  'WhatsApp haijatumwa: aina hii ya tukio haina template bado. Tumia SMS tu, au mgeni ajibu kwanza.';
 const WHATSAPP_SEND_FAILED_REASON = 'WhatsApp imeshindwa kutumwa';
 const SMS_SEND_FAILED_REASON = 'SMS imeshindwa kutumwa';
 const LOCATION_LINK_FALLBACK = 'Hakuna ramani';
@@ -267,6 +270,7 @@ async function sendAcceptedInvitation(params: {
   venue: string;
   locationLink: string;
   headerImageUrl: string;
+  templateName: string;
 }): Promise<{ success: boolean; externalId?: string }> {
   const waResponse = await sendWhatsAppInvitation(params.to, {
     guestName: params.guestName,
@@ -277,6 +281,7 @@ async function sendAcceptedInvitation(params: {
     venue: params.venue || 'TBA',
     locationLink: params.locationLink.trim() || LOCATION_LINK_FALLBACK,
     headerImageUrl: params.headerImageUrl,
+    templateName: params.templateName,
   });
   const externalId =
     typeof waResponse?.messages?.[0]?.id === 'string' ? waResponse.messages[0].id : undefined;
@@ -429,8 +434,12 @@ async function sendToGuest(params: {
     }
   }
 
-  const hostName = event.family_name?.trim() || event.name;
-  const isWedding = event.type === 'Wedding';
+  const templateName = resolveWhatsAppTemplate(event.type);
+  const templateAllowed = templateName !== null && isTemplateApproved(templateName);
+  const hostName =
+    templateName === 'nivle_event_invitation'
+      ? event.family_name?.trim() || event.name
+      : event.family_name?.trim() || '';
   let whatsappHeaderImageUrl = params.cardImageUrl;
   let sentWhatsappContent = whatsappLogContent;
 
@@ -446,11 +455,11 @@ async function sendToGuest(params: {
     }
 
     const freeFormAllowed = hasCustomMessage && within24Hours;
-    const blockedByEventType = !freeFormAllowed && !isWedding;
+    const blockedByTemplate = !freeFormAllowed && !templateAllowed;
 
-    if (blockedByEventType) {
+    if (blockedByTemplate) {
       whatsappResult = 'skipped';
-      whatsappReason = NO_WHATSAPP_TEMPLATE_REASON;
+      whatsappReason = templateBlockedReason(templateName);
     } else {
       try {
         console.log('Single send WhatsApp', {
@@ -472,7 +481,7 @@ async function sendToGuest(params: {
             whatsappResult = 'ok';
             whatsappExternalId = imageResult.externalId;
             sentWhatsappContent = personalizedCustom;
-          } else if (isWedding) {
+          } else if (templateAllowed && templateName) {
             const accepted = await sendAcceptedInvitation({
               to: whatsAppPhone,
               guestName: guest.name,
@@ -483,6 +492,7 @@ async function sendToGuest(params: {
               venue,
               locationLink,
               headerImageUrl: whatsappHeaderImageUrl,
+              templateName,
             });
             if (accepted.success) {
               whatsappSent = true;
@@ -497,7 +507,7 @@ async function sendToGuest(params: {
             whatsappResult = 'failed';
             whatsappReason = WHATSAPP_SEND_FAILED_REASON;
           }
-        } else if (isWedding) {
+        } else if (templateAllowed && templateName) {
           const accepted = await sendAcceptedInvitation({
             to: whatsAppPhone,
             guestName: guest.name,
@@ -508,6 +518,7 @@ async function sendToGuest(params: {
             venue,
             locationLink,
             headerImageUrl: whatsappHeaderImageUrl,
+            templateName,
           });
           if (accepted.success) {
             whatsappSent = true;

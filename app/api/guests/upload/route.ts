@@ -54,6 +54,11 @@ async function verifyEventOwnership(
 function getCodePrefix(eventType: Event['type']): string {
   const prefixes: Record<Event['type'], string> = {
     Wedding: 'WED',
+    Sendoff: 'SND',
+    Ticket: 'TKT',
+    Graduation: 'GRD',
+    'Kitchen Party': 'KIT',
+    Meeting: 'MTG',
     Birthday: 'BDA',
     Conference: 'CON',
     Corporate: 'COR',

@@ -5,8 +5,7 @@ import { verifyToken } from '@/lib/token';
 import { query } from '@/lib/db';
 import { getClientById, createEvent } from '@/lib/database/queries';
 import { Event } from '@/lib/database/types';
-
-const EVENT_TYPES = ['Wedding', 'Birthday', 'Conference', 'Corporate', 'Other'] as const;
+import { isKnownEventType, isWeddingEventType } from '@/lib/event-types';
 const EVENT_STATUSES = ['Draft', 'Active', 'Completed'] as const;
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 const URL_REGEX = /^https?:\/\/.+/i;
@@ -49,8 +48,11 @@ function validateEventBody(body: {
   if (name.length > 100) {
     return 'Event name must be at most 100 characters';
   }
-  if (!type || !EVENT_TYPES.includes(type as (typeof EVENT_TYPES)[number])) {
+  if (!type || !isKnownEventType(type)) {
     return 'Invalid event type';
+  }
+  if (!isWeddingEventType(type) && !familyName) {
+    return 'This field is required';
   }
   if (!date) {
     return 'Date is required';
@@ -58,10 +60,16 @@ function validateEventBody(body: {
   if (Number.isNaN(Date.parse(date))) {
     return 'Invalid date format';
   }
-  if (time && !TIME_REGEX.test(time)) {
+  if (!time) {
+    return 'Time is required';
+  }
+  if (!TIME_REGEX.test(time)) {
     return 'Invalid time format (use HH:MM)';
   }
-  if (venue && venue.length > 100) {
+  if (!venue) {
+    return 'Venue is required';
+  }
+  if (venue.length > 100) {
     return 'Venue must be at most 100 characters';
   }
   if (familyName && familyName.length > 255) {

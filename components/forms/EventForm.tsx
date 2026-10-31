@@ -3,17 +3,11 @@
 import { FormEvent, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Client, Event } from '@/lib/database/types';
+import { EVENT_TYPES, isWeddingEventType } from '@/lib/event-types';
+import { isTemplateApproved, resolveWhatsAppTemplate } from '@/lib/whatsapp-templates';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-
-export const EVENT_TYPES: Event['type'][] = [
-  'Wedding',
-  'Birthday',
-  'Conference',
-  'Corporate',
-  'Other',
-];
 
 export const EVENT_STATUSES: Event['status'][] = ['Draft', 'Active', 'Completed'];
 
@@ -48,6 +42,39 @@ function formatDateForInput(date: Date | string): string {
   return `${year}-${month}-${day}`;
 }
 
+function subjectFieldForType(eventType: Event['type']): {
+  label: string;
+  placeholder: string;
+  required: boolean;
+} {
+  if (isWeddingEventType(eventType)) {
+    return {
+      label: 'Jina la Familia',
+      placeholder: 'Harson Festo Moshi & Dativa Antoni Massawe',
+      required: false,
+    };
+  }
+  if (eventType === 'Sendoff') {
+    return {
+      label: 'Jina la Mhusika',
+      placeholder: 'Lucy Emmanuel',
+      required: true,
+    };
+  }
+  if (eventType === 'Ticket') {
+    return {
+      label: 'Tiketi ni ya nini?',
+      placeholder: 'Igizo la Romeo na Julieti',
+      required: true,
+    };
+  }
+  return {
+    label: 'Mwaliko ni wa nini?',
+    placeholder: 'BABY SHOWER YA ASHA',
+    required: true,
+  };
+}
+
 function formatTimeForInput(time: string | null): string {
   if (!time) return '';
   return time.slice(0, 5);
@@ -71,13 +98,19 @@ function validateForm(data: EventFormData): Partial<Record<keyof EventFormData, 
   } else if (Number.isNaN(Date.parse(data.date))) {
     errors.date = 'Invalid date format';
   }
-  if (data.time && !TIME_REGEX.test(data.time)) {
+  if (!data.time) {
+    errors.time = 'Time is required';
+  } else if (!TIME_REGEX.test(data.time)) {
     errors.time = 'Invalid time format (use HH:MM)';
   }
-  if (data.venue.trim().length > 100) {
+  if (!data.venue.trim()) {
+    errors.venue = 'Venue is required';
+  } else if (data.venue.trim().length > 100) {
     errors.venue = 'Venue must be at most 100 characters';
   }
-  if (data.family_name.trim().length > 255) {
+  if (!isWeddingEventType(data.type) && !data.family_name.trim()) {
+    errors.family_name = 'This field is required';
+  } else if (data.family_name.trim().length > 255) {
     errors.family_name = 'Family name must be at most 255 characters';
   }
   if (data.location_link.trim() && !URL_REGEX.test(data.location_link.trim())) {
@@ -181,6 +214,10 @@ export function EventForm({
     return opts;
   }, [filteredClients, clientsLoading]);
 
+  const subjectField = subjectFieldForType(type);
+  const templateName = resolveWhatsAppTemplate(type);
+  const templateApproved = templateName ? isTemplateApproved(templateName) : false;
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitError('');
@@ -278,26 +315,34 @@ export function EventForm({
       />
 
       <Input
-        label="Jina la Familia/Mhusika"
+        label={subjectField.label}
         type="text"
         value={familyName}
         onChange={(e) => {
           setFamilyName(e.target.value);
           clearFieldError('family_name');
         }}
-        placeholder='e.g. Harson Festo Moshi & Dativa Antoni Massawe'
+        placeholder={subjectField.placeholder}
+        required={subjectField.required}
         disabled={isLoading}
         error={fieldErrors.family_name}
       />
 
-      <SelectField
-        label="Event Type"
-        value={type}
-        onChange={(v) => setType(v as Event['type'])}
-        options={EVENT_TYPES.map((t) => ({ value: t, label: t }))}
-        disabled={isLoading}
-        required
-      />
+      <div className="space-y-2">
+        <SelectField
+          label="Event Type"
+          value={type}
+          onChange={(v) => setType(v as Event['type'])}
+          options={EVENT_TYPES.map((item) => ({ value: item.value, label: item.label }))}
+          disabled={isLoading}
+          required
+        />
+        <p className="text-small text-neutral-muted">
+          {templateName
+            ? `Template: ${templateName}. ${templateApproved ? 'Imekubaliwa' : 'Bado inasubiri Meta - SMS tu'}`
+            : 'Hakuna template kwa aina hii.'}
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
@@ -320,6 +365,7 @@ export function EventForm({
             setTime(e.target.value);
             clearFieldError('time');
           }}
+          required
           disabled={isLoading}
           error={fieldErrors.time}
         />
@@ -334,22 +380,28 @@ export function EventForm({
           clearFieldError('venue');
         }}
         placeholder="e.g. Serena Hotel, Dar es Salaam"
+        required
         disabled={isLoading}
         error={fieldErrors.venue}
       />
 
-      <Input
-        label="Location Link"
-        type="url"
-        value={locationLink}
-        onChange={(e) => {
-          setLocationLink(e.target.value);
-          clearFieldError('location_link');
-        }}
-        placeholder="https://maps.google.com/..."
-        disabled={isLoading}
-        error={fieldErrors.location_link}
-      />
+      <div className="space-y-2">
+        <Input
+          label="Location Link"
+          type="url"
+          value={locationLink}
+          onChange={(e) => {
+            setLocationLink(e.target.value);
+            clearFieldError('location_link');
+          }}
+          placeholder="https://maps.google.com/..."
+          disabled={isLoading}
+          error={fieldErrors.location_link}
+        />
+        <p className="text-small text-neutral-muted">
+          Weka link ya Google Maps ili wageni wapate ramani
+        </p>
+      </div>
 
       <SelectField
         label="Status"

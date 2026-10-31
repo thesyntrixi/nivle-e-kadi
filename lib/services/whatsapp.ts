@@ -175,6 +175,7 @@ export async function sendWhatsAppInvitation(
     venue: string;
     locationLink: string;
     headerImageUrl: string;
+    templateName?: string;
   }
 ) {
   const formattedPhone = formatPhoneForWhatsApp(to);
@@ -184,14 +185,20 @@ export async function sendWhatsAppInvitation(
   });
   const guestType = params.guestType ?? 'single';
   const displayName = formatGuestDisplayName(params.guestName, guestType);
-  const hostName = params.familyName?.trim() || params.eventName?.trim() || 'TBA';
+  const templateName = params.templateName?.trim() || 'nivle_event_invitation';
+  const hostName =
+    templateName === 'nivle_event_invitation'
+      ? params.familyName?.trim() || params.eventName?.trim() || 'TBA'
+      : params.familyName?.trim() || 'TBA';
+  const venue = params.venue?.trim() || 'TBA';
+  const locationLink = params.locationLink?.trim() || 'Hakuna ramani';
 
   const requestBody = {
     messaging_product: 'whatsapp',
     to: formattedPhone,
     type: 'template',
     template: {
-      name: 'nivle_event_invitation',
+      name: templateName,
       language: { code: 'sw' },
       components: [
         {
@@ -209,8 +216,8 @@ export async function sendWhatsAppInvitation(
             { type: 'text', text: displayName },
             { type: 'text', text: hostName },
             { type: 'text', text: params.dateTime },
-            { type: 'text', text: params.venue },
-            { type: 'text', text: params.locationLink },
+            { type: 'text', text: venue },
+            { type: 'text', text: locationLink },
           ],
         },
       ],

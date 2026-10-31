@@ -14,6 +14,11 @@ import {
 import { formatSwahiliDateTime } from '@/lib/utils/swahili-datetime';
 import { sendSMS } from '@/lib/services/sms';
 import { sendWhatsAppInvitation } from '@/lib/services/whatsapp';
+import {
+  isTemplateApproved,
+  resolveWhatsAppTemplate,
+  templateBlockedReason,
+} from '@/lib/whatsapp-templates';
 import { guestHasWhatsApp } from '@/lib/utils/guest-whatsapp';
 
 const GUEST_DELAY_MS = 400;
@@ -28,7 +33,7 @@ function getUserId(request: NextRequest): string | null {
 
 async function getOwnedEvent(userId: string, eventId: string) {
   const result = await query(
-    `SELECT e.id, e.name, e.date, e.time, e.venue, e.location_link
+    `SELECT e.id, e.name, e.family_name, e.type, e.date, e.time, e.venue, e.location_link
      FROM events e
      JOIN clients c ON e.client_id = c.id
      WHERE e.id = $1 AND c.user_id = $2 AND c.is_active = true`,
@@ -38,6 +43,8 @@ async function getOwnedEvent(userId: string, eventId: string) {
     | {
         id: string;
         name: string;
+        family_name: string | null;
+        type: string;
         date: string;
         time: string | null;
         venue: string | null;
@@ -155,9 +162,48 @@ export async function POST(request: NextRequest) {
       venue,
       locationLink
     );
+    const templateName = resolveWhatsAppTemplate(event.type);
+    const invitationSubject =
+      templateName === 'nivle_event_invitation'
+        ? event.family_name?.trim() || event.name
+        : event.family_name?.trim() || '';
 
     let succeeded = 0;
     let failed = 0;
+
+    if (templateName === null || !isTemplateApproved(templateName)) {
+      for (let i = 0; i < guests.length; i++) {
+        const guest = guests[i];
+        const guestTypeValue = guest.guest_type ?? 'single';
+        const phone = formatPhoneForSending(guest.phone);
+        try {
+          await sendSMS(phone, smsTemplate, {
+            guestName: guest.name,
+            guestType: guestTypeValue,
+          });
+        } catch {
+          console.error('SMS send error');
+        }
+        if (i < guests.length - 1) {
+          await delay(GUEST_DELAY_MS);
+        }
+      }
+
+      const remaining = await getPendingCounts(eventId);
+      return NextResponse.json(
+        {
+          success: false,
+          error: templateBlockedReason(templateName),
+          data: {
+            processed: guests.length,
+            succeeded: 0,
+            failed: 0,
+            remaining,
+          },
+        },
+        { status: 400 }
+      );
+    }
 
     for (let i = 0; i < guests.length; i++) {
       const guest = guests[i];
@@ -183,10 +229,12 @@ export async function POST(request: NextRequest) {
             guestName: guest.name,
             guestType: guestTypeValue,
             eventName: event.name,
+            familyName: invitationSubject,
             dateTime: formattedDateTime,
             venue: venue || 'TBA',
             locationLink,
             headerImageUrl: cardImageUrl,
+            templateName,
           });
           whatsappOk = true;
         }

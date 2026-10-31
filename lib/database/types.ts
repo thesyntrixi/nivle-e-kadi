@@ -1,5 +1,7 @@
 // lib/database/types.ts
 
+import type { EventType } from '@/lib/event-types';
+
 export type UserRole = 'admin' | 'check-in-staff';
 
 export type User = {
@@ -31,7 +33,7 @@ export type Event = {
   client_id: string;
   name: string;
   family_name: string | null;
-  type: 'Wedding' | 'Birthday' | 'Conference' | 'Corporate' | 'Other';
+  type: EventType;
   date: Date;
   time: string | null;
   venue: string | null;

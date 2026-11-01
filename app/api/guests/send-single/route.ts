@@ -448,7 +448,7 @@ async function sendToGuest(params: {
 
   if (canSendWhatsApp && params.cardImageUrl) {
     let within24Hours = false;
-    if (hasCustomMessage) {
+    if (!templateAllowed && hasCustomMessage) {
       try {
         within24Hours = await guestHasInboundWithin24Hours(guest.id);
       } catch {
@@ -457,13 +457,9 @@ async function sendToGuest(params: {
       }
     }
 
-    const freeFormAllowed = hasCustomMessage && within24Hours;
-    const blockedByTemplate = !freeFormAllowed && !templateAllowed;
+    const freeFormAllowed = !templateAllowed && hasCustomMessage && within24Hours;
 
-    if (blockedByTemplate) {
-      whatsappResult = 'skipped';
-      whatsappReason = templateBlockedReason(templateName);
-    } else {
+    if (templateAllowed && templateName) {
       try {
         console.log('Single send WhatsApp', {
           channel: 'whatsapp',
@@ -472,74 +468,64 @@ async function sendToGuest(params: {
           phone: `***${whatsAppPhone.slice(-3)}`,
         });
         whatsappHeaderImageUrl = await overlayQrOnCard(params.cardImageUrl, guest);
-
-        if (freeFormAllowed) {
-          const imageResult = await sendWhatsAppImageWithCaption(
-            whatsAppPhone,
-            whatsappHeaderImageUrl,
-            personalizedCustom
-          );
-          if (imageResult.success) {
-            whatsappSent = true;
-            whatsappResult = 'ok';
-            whatsappExternalId = imageResult.externalId;
-            sentWhatsappContent = personalizedCustom;
-          } else if (templateAllowed && templateName) {
-            const accepted = await sendAcceptedInvitation({
-              to: whatsAppPhone,
-              guestName: guest.name,
-              guestType,
-              eventName: event.name,
-              familyName: hostName,
-              dateTime: formattedDateTime,
-              venue,
-              locationLink,
-              headerImageUrl: whatsappHeaderImageUrl,
-              templateName,
-              templateLanguage: whatsAppTemplateLanguage(templateName),
-            });
-            if (accepted.success) {
-              whatsappSent = true;
-              whatsappResult = 'ok';
-              whatsappExternalId = accepted.externalId;
-              sentWhatsappContent = `Mwaliko wa ${event.name} — ${formattedDateTime}`;
-            } else {
-              whatsappResult = 'failed';
-              whatsappReason = WHATSAPP_SEND_FAILED_REASON;
-            }
-          } else {
-            whatsappResult = 'failed';
-            whatsappReason = WHATSAPP_SEND_FAILED_REASON;
-          }
-        } else if (templateAllowed && templateName) {
-          const accepted = await sendAcceptedInvitation({
-            to: whatsAppPhone,
-            guestName: guest.name,
-            guestType,
-            eventName: event.name,
-            familyName: hostName,
-            dateTime: formattedDateTime,
-            venue,
-            locationLink,
-            headerImageUrl: whatsappHeaderImageUrl,
-            templateName,
-            templateLanguage: whatsAppTemplateLanguage(templateName),
-          });
-          if (accepted.success) {
-            whatsappSent = true;
-            whatsappResult = 'ok';
-            whatsappExternalId = accepted.externalId;
-            sentWhatsappContent = `Mwaliko wa ${event.name} — ${formattedDateTime}`;
-          } else {
-            whatsappResult = 'failed';
-            whatsappReason = WHATSAPP_SEND_FAILED_REASON;
-          }
+        const accepted = await sendAcceptedInvitation({
+          to: whatsAppPhone,
+          guestName: guest.name,
+          guestType,
+          eventName: event.name,
+          familyName: hostName,
+          dateTime: formattedDateTime,
+          venue,
+          locationLink,
+          headerImageUrl: whatsappHeaderImageUrl,
+          templateName,
+          templateLanguage: whatsAppTemplateLanguage(templateName),
+        });
+        if (accepted.success) {
+          whatsappSent = true;
+          whatsappResult = 'ok';
+          whatsappExternalId = accepted.externalId;
+          sentWhatsappContent = `Mwaliko wa ${event.name} — ${formattedDateTime}`;
+        } else {
+          whatsappResult = 'failed';
+          whatsappReason = WHATSAPP_SEND_FAILED_REASON;
         }
       } catch {
         console.error('Single send WhatsApp error');
         whatsappResult = 'failed';
         whatsappReason = WHATSAPP_SEND_FAILED_REASON;
       }
+    } else if (freeFormAllowed) {
+      try {
+        console.log('Single send WhatsApp', {
+          channel: 'whatsapp',
+          guestId: guest.id,
+          eventId: guest.event_id,
+          phone: `***${whatsAppPhone.slice(-3)}`,
+        });
+        whatsappHeaderImageUrl = await overlayQrOnCard(params.cardImageUrl, guest);
+        const imageResult = await sendWhatsAppImageWithCaption(
+          whatsAppPhone,
+          whatsappHeaderImageUrl,
+          personalizedCustom
+        );
+        if (imageResult.success) {
+          whatsappSent = true;
+          whatsappResult = 'ok';
+          whatsappExternalId = imageResult.externalId;
+          sentWhatsappContent = personalizedCustom;
+        } else {
+          whatsappResult = 'failed';
+          whatsappReason = WHATSAPP_SEND_FAILED_REASON;
+        }
+      } catch {
+        console.error('Single send WhatsApp error');
+        whatsappResult = 'failed';
+        whatsappReason = WHATSAPP_SEND_FAILED_REASON;
+      }
+    } else {
+      whatsappResult = 'skipped';
+      whatsappReason = templateBlockedReason(templateName);
     }
   } else if (wantsWhatsApp && !guestHasWhatsApp(guest.has_whatsapp)) {
     whatsappResult = 'no_whatsapp';

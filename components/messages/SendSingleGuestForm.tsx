@@ -426,7 +426,7 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
               htmlFor="single-send-message"
               className="block text-small font-medium uppercase tracking-wide text-neutral-muted"
             >
-              Ujumbe
+              Ujumbe wa SMS
             </label>
             <textarea
               id="single-send-message"
@@ -439,6 +439,9 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
             />
             <p className="text-small text-neutral-muted">
               [JINA] itabadilishwa na jina la kila mgeni automatically
+            </p>
+            <p className="text-small text-neutral-muted">
+              WhatsApp itatumia template ya aina ya tukio (maneno ya tukio na vitufe vya RSVP vimo ndani yake).
             </p>
           </div>
 

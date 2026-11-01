@@ -133,6 +133,40 @@ export async function GET(request: NextRequest) {
   return new NextResponse('Forbidden', { status: 403 });
 }
 
+function redactLongDigitSequences(value: string): string {
+  return value.replace(/\d{9,}/g, '***');
+}
+
+function logWhatsAppDeliveryStatus(statusItem: {
+  id?: string;
+  status?: string;
+  errors?: Array<{
+    code?: number | string;
+    title?: string;
+    error_data?: { details?: string };
+  }>;
+}) {
+  const status = statusItem?.status;
+  const messageId = statusItem?.id;
+  if (status !== 'failed' || !Array.isArray(statusItem?.errors)) {
+    console.log('WhatsApp delivery status', { status, messageId });
+    return;
+  }
+
+  console.log('WhatsApp delivery status', {
+    status,
+    messageId,
+    errors: statusItem.errors.map((error) => ({
+      code: error?.code,
+      title: error?.title,
+      details:
+        typeof error?.error_data?.details === 'string'
+          ? redactLongDigitSequences(error.error_data.details)
+          : undefined,
+    })),
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -158,6 +192,12 @@ export async function POST(request: NextRequest) {
           hasStatuses: Array.isArray(statuses),
           statusCount: Array.isArray(statuses) ? statuses.length : 0,
         });
+
+        if (Array.isArray(statuses)) {
+          for (const statusItem of statuses) {
+            logWhatsAppDeliveryStatus(statusItem);
+          }
+        }
 
         if (!Array.isArray(messages)) continue;
 

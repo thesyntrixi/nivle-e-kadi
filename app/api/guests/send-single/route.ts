@@ -34,6 +34,8 @@ const WHATSAPP_API_VERSION = 'v21.0';
 const WHATSAPP_SEND_FAILED_REASON = 'WhatsApp imeshindwa kutumwa';
 const SMS_SEND_FAILED_REASON = 'SMS imeshindwa kutumwa';
 const LOCATION_LINK_FALLBACK = 'Hakuna ramani';
+const WHATSAPP_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const CARD_TOO_LARGE_REASON = 'Kadi ni kubwa kuliko 5MB. Punguza ukubwa na ujaribu tena.';
 
 type SendChannel = 'whatsapp' | 'sms' | 'both';
 type ChannelFeedback = 'ok' | 'failed' | 'skipped' | 'not_requested' | 'no_whatsapp';
@@ -196,14 +198,31 @@ async function overlayQrOnCard(
   }
 
   try {
-    const qrCardBlob = await put(`cards/qr-${guest.id}-${Date.now()}.png`, cardWithQr, {
+    const qrCardBlob = await put(`cards/qr-${guest.id}-${Date.now()}.jpg`, cardWithQr, {
       access: 'public',
-      contentType: 'image/png',
+      contentType: 'image/jpeg',
     });
     return qrCardBlob.url;
-  } catch (uploadErr) {
-    console.error('Failed to upload card with QR overlay:', uploadErr);
+  } catch {
+    console.error('Failed to upload card with QR overlay');
     return cardImageUrl;
+  }
+}
+
+async function imageExceedsWhatsAppLimit(imageUrl: string): Promise<boolean> {
+  try {
+    const head = await fetch(imageUrl, { method: 'HEAD' });
+    const headerLength = Number(head.headers.get('content-length'));
+    if (Number.isFinite(headerLength) && headerLength > 0) {
+      return headerLength > WHATSAPP_IMAGE_MAX_BYTES;
+    }
+
+    const response = await fetch(imageUrl);
+    if (!response.ok) return false;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return buffer.length > WHATSAPP_IMAGE_MAX_BYTES;
+  } catch {
+    return false;
   }
 }
 
@@ -468,27 +487,32 @@ async function sendToGuest(params: {
           phone: `***${whatsAppPhone.slice(-3)}`,
         });
         whatsappHeaderImageUrl = await overlayQrOnCard(params.cardImageUrl, guest);
-        const accepted = await sendAcceptedInvitation({
-          to: whatsAppPhone,
-          guestName: guest.name,
-          guestType,
-          eventName: event.name,
-          familyName: hostName,
-          dateTime: formattedDateTime,
-          venue,
-          locationLink,
-          headerImageUrl: whatsappHeaderImageUrl,
-          templateName,
-          templateLanguage: whatsAppTemplateLanguage(templateName),
-        });
-        if (accepted.success) {
-          whatsappSent = true;
-          whatsappResult = 'ok';
-          whatsappExternalId = accepted.externalId;
-          sentWhatsappContent = `Mwaliko wa ${event.name} — ${formattedDateTime}`;
+        if (await imageExceedsWhatsAppLimit(whatsappHeaderImageUrl)) {
+          whatsappResult = 'skipped';
+          whatsappReason = CARD_TOO_LARGE_REASON;
         } else {
-          whatsappResult = 'failed';
-          whatsappReason = WHATSAPP_SEND_FAILED_REASON;
+          const accepted = await sendAcceptedInvitation({
+            to: whatsAppPhone,
+            guestName: guest.name,
+            guestType,
+            eventName: event.name,
+            familyName: hostName,
+            dateTime: formattedDateTime,
+            venue,
+            locationLink,
+            headerImageUrl: whatsappHeaderImageUrl,
+            templateName,
+            templateLanguage: whatsAppTemplateLanguage(templateName),
+          });
+          if (accepted.success) {
+            whatsappSent = true;
+            whatsappResult = 'ok';
+            whatsappExternalId = accepted.externalId;
+            sentWhatsappContent = `Mwaliko wa ${event.name} — ${formattedDateTime}`;
+          } else {
+            whatsappResult = 'failed';
+            whatsappReason = WHATSAPP_SEND_FAILED_REASON;
+          }
         }
       } catch {
         console.error('Single send WhatsApp error');
@@ -504,19 +528,24 @@ async function sendToGuest(params: {
           phone: `***${whatsAppPhone.slice(-3)}`,
         });
         whatsappHeaderImageUrl = await overlayQrOnCard(params.cardImageUrl, guest);
-        const imageResult = await sendWhatsAppImageWithCaption(
-          whatsAppPhone,
-          whatsappHeaderImageUrl,
-          personalizedCustom
-        );
-        if (imageResult.success) {
-          whatsappSent = true;
-          whatsappResult = 'ok';
-          whatsappExternalId = imageResult.externalId;
-          sentWhatsappContent = personalizedCustom;
+        if (await imageExceedsWhatsAppLimit(whatsappHeaderImageUrl)) {
+          whatsappResult = 'skipped';
+          whatsappReason = CARD_TOO_LARGE_REASON;
         } else {
-          whatsappResult = 'failed';
-          whatsappReason = WHATSAPP_SEND_FAILED_REASON;
+          const imageResult = await sendWhatsAppImageWithCaption(
+            whatsAppPhone,
+            whatsappHeaderImageUrl,
+            personalizedCustom
+          );
+          if (imageResult.success) {
+            whatsappSent = true;
+            whatsappResult = 'ok';
+            whatsappExternalId = imageResult.externalId;
+            sentWhatsappContent = personalizedCustom;
+          } else {
+            whatsappResult = 'failed';
+            whatsappReason = WHATSAPP_SEND_FAILED_REASON;
+          }
         }
       } catch {
         console.error('Single send WhatsApp error');

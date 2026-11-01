@@ -6,6 +6,26 @@ const QR_MARGIN = 2;
 const EDGE_OFFSET = 20;
 const WHITE_PADDING = 8;
 const INVITE_BASE_URL = 'https://admin.nivle-ekadi.com/invite';
+const JPEG_MAX_WIDTH = 1600;
+const JPEG_FALLBACK_WIDTH = 1200;
+const JPEG_TARGET_BYTES = Math.floor(4.5 * 1024 * 1024);
+
+async function encodeCardJpeg(
+  input: Buffer,
+  maxWidth: number,
+  quality: number
+): Promise<Buffer> {
+  const pipeline = () =>
+    sharp(input)
+      .resize({ width: maxWidth, withoutEnlargement: true })
+      .flatten({ background: { r: 255, g: 255, b: 255 } });
+
+  try {
+    return await pipeline().jpeg({ quality, mozjpeg: true }).toBuffer();
+  } catch {
+    return pipeline().jpeg({ quality }).toBuffer();
+  }
+}
 
 export async function generateCardWithQR(
   cardImageUrl: string,
@@ -49,12 +69,26 @@ export async function generateCardWithQR(
     const left = Math.max(0, cardWidth - paddedQrSize - EDGE_OFFSET);
     const top = Math.max(0, cardHeight - paddedQrSize - 60);
 
-    return await sharp(cardBuffer)
+    const composited = await sharp(cardBuffer)
       .composite([{ input: qrWithBackground, left, top }])
-      .png()
       .toBuffer();
-  } catch (error) {
-    console.error('generateCardWithQR failed:', error);
+
+    let jpeg = await encodeCardJpeg(composited, JPEG_MAX_WIDTH, 85);
+    if (jpeg.length > JPEG_TARGET_BYTES) {
+      jpeg = await encodeCardJpeg(composited, JPEG_MAX_WIDTH, 75);
+    }
+    if (jpeg.length > JPEG_TARGET_BYTES) {
+      jpeg = await encodeCardJpeg(composited, JPEG_MAX_WIDTH, 65);
+    }
+    if (jpeg.length > JPEG_TARGET_BYTES) {
+      jpeg = await encodeCardJpeg(composited, JPEG_MAX_WIDTH, 55);
+    }
+    if (jpeg.length > JPEG_TARGET_BYTES) {
+      jpeg = await encodeCardJpeg(composited, JPEG_FALLBACK_WIDTH, 55);
+    }
+    return jpeg;
+  } catch {
+    console.error('generateCardWithQR failed');
     return null;
   }
 }

@@ -18,6 +18,7 @@ import {
   isTemplateApproved,
   resolveWhatsAppTemplate,
   templateBlockedReason,
+  whatsAppTemplateLanguage,
 } from '@/lib/whatsapp-templates';
 import { guestHasWhatsApp } from '@/lib/utils/guest-whatsapp';
 
@@ -235,6 +236,7 @@ export async function POST(request: NextRequest) {
             locationLink,
             headerImageUrl: cardImageUrl,
             templateName,
+            templateLanguage: whatsAppTemplateLanguage(templateName),
           });
           whatsappOk = true;
         }

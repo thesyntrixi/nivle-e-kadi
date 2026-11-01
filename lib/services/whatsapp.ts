@@ -176,6 +176,7 @@ export async function sendWhatsAppInvitation(
     locationLink: string;
     headerImageUrl: string;
     templateName?: string;
+    templateLanguage?: string;
   }
 ) {
   const formattedPhone = formatPhoneForWhatsApp(to);
@@ -186,6 +187,7 @@ export async function sendWhatsAppInvitation(
   const guestType = params.guestType ?? 'single';
   const displayName = formatGuestDisplayName(params.guestName, guestType);
   const templateName = params.templateName?.trim() || 'nivle_event_invitation';
+  const languageCode = params.templateLanguage?.trim() || 'sw';
   const hostName =
     templateName === 'nivle_event_invitation'
       ? params.familyName?.trim() || params.eventName?.trim() || 'TBA'
@@ -199,7 +201,7 @@ export async function sendWhatsAppInvitation(
     type: 'template',
     template: {
       name: templateName,
-      language: { code: 'sw' },
+      language: { code: languageCode },
       components: [
         {
           type: 'header',

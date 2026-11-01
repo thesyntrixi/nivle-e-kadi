@@ -2,6 +2,18 @@ const GENERAL_TEMPLATE = 'nivle_general_invitation';
 
 const ALWAYS_APPROVED = new Set(['nivle_event_invitation', 'nivle_sendoff_invitation']);
 
+const TEMPLATE_LANGUAGE: Record<string, string> = {
+  nivle_event_invitation: 'sw',
+  nivle_ticket_invitation: 'sw',
+  nivle_general_invitation: 'sw',
+  nivle_sendoff_invitation: 'en',
+};
+
+export function whatsAppTemplateLanguage(templateName: string | null | undefined): string {
+  const key = templateName?.trim() ?? '';
+  return TEMPLATE_LANGUAGE[key] ?? 'sw';
+}
+
 export function resolveWhatsAppTemplate(eventType: string | null | undefined): string | null {
   const key = eventType?.trim().toLowerCase() ?? '';
   if (!key) return null;

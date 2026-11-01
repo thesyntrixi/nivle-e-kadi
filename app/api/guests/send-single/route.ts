@@ -18,6 +18,7 @@ import {
   isTemplateApproved,
   resolveWhatsAppTemplate,
   templateBlockedReason,
+  whatsAppTemplateLanguage,
 } from '@/lib/whatsapp-templates';
 import {
   formatPhoneForSmsApi,
@@ -271,6 +272,7 @@ async function sendAcceptedInvitation(params: {
   locationLink: string;
   headerImageUrl: string;
   templateName: string;
+  templateLanguage: string;
 }): Promise<{ success: boolean; externalId?: string }> {
   const waResponse = await sendWhatsAppInvitation(params.to, {
     guestName: params.guestName,
@@ -282,6 +284,7 @@ async function sendAcceptedInvitation(params: {
     locationLink: params.locationLink.trim() || LOCATION_LINK_FALLBACK,
     headerImageUrl: params.headerImageUrl,
     templateName: params.templateName,
+    templateLanguage: params.templateLanguage,
   });
   const externalId =
     typeof waResponse?.messages?.[0]?.id === 'string' ? waResponse.messages[0].id : undefined;
@@ -493,6 +496,7 @@ async function sendToGuest(params: {
               locationLink,
               headerImageUrl: whatsappHeaderImageUrl,
               templateName,
+              templateLanguage: whatsAppTemplateLanguage(templateName),
             });
             if (accepted.success) {
               whatsappSent = true;
@@ -519,6 +523,7 @@ async function sendToGuest(params: {
             locationLink,
             headerImageUrl: whatsappHeaderImageUrl,
             templateName,
+            templateLanguage: whatsAppTemplateLanguage(templateName),
           });
           if (accepted.success) {
             whatsappSent = true;

@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { AssignedEvent } from '@/lib/database/types';
+import { formatTime12h } from '@/lib/utils/swahili-datetime';
 
 function formatEventDate(date: string | Date): string {
   return new Date(date).toLocaleDateString('en-GB', {
@@ -98,7 +99,7 @@ export default function CheckInStaffPage() {
                 <h4 className="text-lg font-semibold text-neutral-text">{event.name}</h4>
                 <p className="text-small text-neutral-muted mt-1">
                   {formatEventDate(event.date)}
-                  {event.time ? ` · ${event.time}` : ''}
+                  {event.time ? ` · ${formatTime12h(event.time)}` : ''}
                 </p>
                 {event.venue && (
                   <p className="text-small text-neutral-muted mt-1">{event.venue}</p>

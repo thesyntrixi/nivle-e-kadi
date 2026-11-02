@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { TumaShukraniButton } from '@/components/events/TumaShukraniButton';
+import { formatTime12h } from '@/lib/utils/swahili-datetime';
 
 export type EventWithClient = Event & { client_name: string };
 
@@ -169,7 +170,7 @@ export function EventsTable({ events, onDelete, deletingId = null }: EventsTable
                 <p className="text-neutral-muted">
                   <span className="text-neutral-text font-medium">Date: </span>
                   {formatEventDate(event.date)}
-                  {event.time && ` at ${formatTimeForInput(event.time)}`}
+                  {event.time && ` at ${formatTime12h(event.time)}`}
                 </p>
                 <p className="text-neutral-muted">
                   <span className="text-neutral-text font-medium">Client: </span>

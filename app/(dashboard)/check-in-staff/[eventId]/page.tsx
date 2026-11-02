@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
 import { StaffEventScanner } from '@/components/checkin/StaffEventScanner';
+import { formatTime12h } from '@/lib/utils/swahili-datetime';
 
 type EventInfo = {
   id: string;
@@ -20,7 +21,8 @@ function formatEventHeader(date: string, time: string | null): string {
     day: 'numeric',
     month: 'short',
   }).toUpperCase();
-  return time ? `${d} · ${time}` : d;
+  const clock = time ? formatTime12h(time) : '';
+  return clock ? `${d} · ${clock}` : d;
 }
 
 export default function StaffEventCheckinPage() {

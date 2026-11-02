@@ -66,3 +66,20 @@ export function formatSwahiliDateTime(
 
   return `${dayName}, ${day} ${month} ${year}, ${timePart}`;
 }
+
+/**
+ * Display a stored 24-hour time as 12-hour AM/PM.
+ * "20:00" -> "8:00 PM". Empty or invalid input returns "".
+ */
+export function formatTime12h(time: string): string {
+  if (!time) return '';
+  const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return '';
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const seconds = match[3] !== undefined ? parseInt(match[3], 10) : 0;
+  if (hours > 23 || minutes > 59 || seconds > 59) return '';
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return `${hour12}:${padTwo(minutes)} ${period}`;
+}

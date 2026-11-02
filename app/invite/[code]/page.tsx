@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import { Card } from '@/components/ui/Card';
 import { GuestType } from '@/lib/database/types';
 import { getGuestTypeBadgeLabel, guestTypeBadgeClass } from '@/lib/guest-type';
+import { formatTime12h } from '@/lib/utils/swahili-datetime';
 
 interface InvitePageProps {
   params: { code: string };
@@ -16,7 +17,8 @@ function formatEventDateTime(date: Date | string, time: string | null): string {
     month: 'long',
     day: 'numeric',
   });
-  return time ? `${dateStr} · ${time}` : dateStr;
+  const clock = time ? formatTime12h(time) : '';
+  return clock ? `${dateStr} · ${clock}` : dateStr;
 }
 
 export default async function InvitePage({ params }: InvitePageProps) {

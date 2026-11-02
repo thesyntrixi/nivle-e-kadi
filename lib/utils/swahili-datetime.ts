@@ -23,20 +23,19 @@ const MONTH_NAMES = [
   'Desemba',
 ];
 
-function getTimePeriod(hour: number): string {
-  if (hour >= 0 && hour <= 11) return 'Asubuhi';
-  if (hour >= 12 && hour <= 15) return 'Mchana';
-  if (hour >= 16 && hour <= 18) return 'Jioni';
-  return 'Usiku';
-}
-
 function padTwo(value: number): string {
   return String(value).padStart(2, '0');
 }
 
+function format12HourTime(hours: number, minutes: number): string {
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return `Saa ${hour12}:${padTwo(minutes)} ${period}`;
+}
+
 /**
  * Format a date/time for Swahili invitation messages.
- * Example: "Jumamosi, 15 Julai 2026, Saa 10:00 Asubuhi"
+ * Example: "Jumamosi, 15 Julai 2026, Saa 8:00 PM"
  */
 export function formatSwahiliDateTime(
   dateInput: Date | string,
@@ -63,8 +62,7 @@ export function formatSwahiliDateTime(
     }
   }
 
-  const period = getTimePeriod(hours);
-  const timePart = `Saa ${padTwo(hours)}:${padTwo(minutes)} ${period}`;
+  const timePart = format12HourTime(hours, minutes);
 
   return `${dayName}, ${day} ${month} ${year}, ${timePart}`;
 }

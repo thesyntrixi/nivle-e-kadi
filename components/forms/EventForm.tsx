@@ -75,9 +75,38 @@ function subjectFieldForType(eventType: Event['type']): {
   };
 }
 
-function formatTimeForInput(time: string | null): string {
-  if (!time) return '';
-  return time.slice(0, 5);
+const MINUTE_STEPS = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+function parseStoredTime(time: string | null | undefined): {
+  hour: string;
+  minute: string;
+  period: '' | 'AM' | 'PM';
+} {
+  if (!time) return { hour: '', minute: '', period: '' };
+  const match = time.slice(0, 5).match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return { hour: '', minute: '', period: '' };
+  const hours24 = parseInt(match[1], 10);
+  if (hours24 > 23) return { hour: '', minute: '', period: '' };
+  const period: 'AM' | 'PM' = hours24 >= 12 ? 'PM' : 'AM';
+  const hour12 = hours24 % 12 || 12;
+  return { hour: String(hour12), minute: match[2], period };
+}
+
+function toStoredTime(hour: string, minute: string, period: string): string {
+  if (!hour || !minute || (period !== 'AM' && period !== 'PM')) return '';
+  const hourNum = Number(hour);
+  if (!Number.isInteger(hourNum) || hourNum < 1 || hourNum > 12) return '';
+  if (!/^\d{2}$/.test(minute)) return '';
+  let hours24 = hourNum % 12;
+  if (period === 'PM') hours24 += 12;
+  return `${String(hours24).padStart(2, '0')}:${minute}`;
+}
+
+function minuteChoices(current: string): string[] {
+  if (current && !MINUTE_STEPS.includes(current)) {
+    return [...MINUTE_STEPS, current].sort();
+  }
+  return MINUTE_STEPS;
 }
 
 function validateForm(data: EventFormData): Partial<Record<keyof EventFormData, string>> {
@@ -189,9 +218,10 @@ export function EventForm({
   const [date, setDate] = useState(
     initialData ? formatDateForInput(initialData.date) : ''
   );
-  const [time, setTime] = useState(
-    initialData ? formatTimeForInput(initialData.time) : ''
-  );
+  const initialTime = parseStoredTime(initialData?.time);
+  const [hour12, setHour12] = useState(initialTime.hour);
+  const [minute, setMinute] = useState(initialTime.minute);
+  const [dayPeriod, setDayPeriod] = useState(initialTime.period);
   const [venue, setVenue] = useState(initialData?.venue ?? '');
   const [locationLink, setLocationLink] = useState(initialData?.location_link ?? '');
   const [status, setStatus] = useState<Event['status']>(
@@ -228,7 +258,7 @@ export function EventForm({
       family_name: familyName,
       type,
       date,
-      time,
+      time: toStoredTime(hour12, minute, dayPeriod),
       venue,
       location_link: locationLink,
       status,
@@ -357,18 +387,74 @@ export function EventForm({
           disabled={isLoading}
           error={fieldErrors.date}
         />
-        <Input
-          label="Time"
-          type="time"
-          value={time}
-          onChange={(e) => {
-            setTime(e.target.value);
-            clearFieldError('time');
-          }}
-          required
-          disabled={isLoading}
-          error={fieldErrors.time}
-        />
+        <div className="space-y-2">
+          <span className="block text-small font-medium uppercase tracking-wide text-neutral-muted">
+            Time
+          </span>
+          <div className="grid grid-cols-3 gap-2">
+            <select
+              aria-label="Hour"
+              value={hour12}
+              onChange={(e) => {
+                setHour12(e.target.value);
+                clearFieldError('time');
+              }}
+              required
+              disabled={isLoading}
+              className={`input-field appearance-none cursor-pointer ${fieldErrors.time ? 'input-field-error' : ''}`}
+            >
+              <option value="">Saa</option>
+              {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Minute"
+              value={minute}
+              onChange={(e) => {
+                setMinute(e.target.value);
+                clearFieldError('time');
+              }}
+              required
+              disabled={isLoading}
+              className={`input-field appearance-none cursor-pointer ${fieldErrors.time ? 'input-field-error' : ''}`}
+            >
+              <option value="">Dakika</option>
+              {minuteChoices(minute).map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="AM or PM"
+              value={dayPeriod}
+              onChange={(e) => {
+                setDayPeriod(e.target.value as '' | 'AM' | 'PM');
+                clearFieldError('time');
+              }}
+              required
+              disabled={isLoading}
+              className={`input-field appearance-none cursor-pointer ${fieldErrors.time ? 'input-field-error' : ''}`}
+            >
+              <option value="">AM/PM</option>
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+          {fieldErrors.time && (
+            <p className="text-small text-accent-error" role="alert">
+              {fieldErrors.time}
+            </p>
+          )}
+          {hour12 && minute && dayPeriod && (
+            <p className="text-small text-neutral-muted">
+              Saa itakayoandikwa kwenye ujumbe: {hour12}:{minute} {dayPeriod}
+            </p>
+          )}
+        </div>
       </div>
 
       <Input

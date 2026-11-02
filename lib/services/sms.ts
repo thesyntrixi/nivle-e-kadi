@@ -74,7 +74,7 @@ export function personalizeGuestMessage(
 export async function sendSMS(
   phone: string,
   message: string,
-  options?: { guestName?: string; guestType?: GuestType }
+  options?: { guestName?: string; guestType?: GuestType; allowLong?: boolean }
 ): Promise<{
   success: boolean;
   externalId?: string;
@@ -118,10 +118,18 @@ export async function sendSMS(
         ? personalizeGuestMessage(message, options.guestName, options.guestType ?? 'single')
         : message;
 
+    const outboundText = options?.allowLong ? textMessage : textMessage.substring(0, 160);
+    if (options?.allowLong && outboundText.length > 918) {
+      return {
+        success: false,
+        error: 'Ujumbe ni mrefu sana (zaidi ya herufi 918)',
+      };
+    }
+
     const requestBody = {
       from: 'NivleDesign',
       to: formattedPhone,
-      text: textMessage.substring(0, 160),
+      text: outboundText,
       reference,
     };
 

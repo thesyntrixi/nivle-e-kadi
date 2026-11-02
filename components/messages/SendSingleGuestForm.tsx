@@ -1,15 +1,25 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Guest, GuestType } from '@/lib/database/types';
 import { getGuestTypeBadgeLabel, guestTypeBadgeClass } from '@/lib/guest-type';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
 import { Input } from '@/components/ui/Input';
+import { buildDefaultSmsText } from '@/lib/utils/sms-default-text';
 
-const DEFAULT_CUSTOM_MESSAGE =
-  'Habari [JINA]! Tafadhali pokea mwaliko wako. Fika na ujumbe huu - utakaguliwa mlangoni. NIVLE E-Kadi';
+const SMS_MAX_CHARS = 918;
+
+type SendFormEvent = {
+  id: string;
+  name: string;
+  family_name: string | null;
+  type: string;
+  date: string;
+  time: string | null;
+  venue: string | null;
+};
 
 type SendChannel = 'whatsapp' | 'sms' | 'both';
 
@@ -55,13 +65,14 @@ function WhatsAppBadge({ hasWhatsapp }: { hasWhatsapp?: boolean }) {
 export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
   const [expanded, setExpanded] = useState(false);
   const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
-  const [events, setEvents] = useState<Array<{ id: string; name: string }>>([]);
+  const [events, setEvents] = useState<SendFormEvent[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [clientId, setClientId] = useState('');
   const [eventId, setEventId] = useState('');
   const [selectedGuestIds, setSelectedGuestIds] = useState<string[]>([]);
   const [guestSearch, setGuestSearch] = useState('');
-  const [customMessage, setCustomMessage] = useState(DEFAULT_CUSTOM_MESSAGE);
+  const [customMessage, setCustomMessage] = useState('');
+  const lastAutoTextRef = useRef('');
   const [channel, setChannel] = useState<SendChannel>('both');
   const [cardFile, setCardFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -112,6 +123,20 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
       .catch(console.error)
       .finally(() => setLoadingGuests(false));
   }, [eventId]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const event = events.find((ev) => ev.id === eventId);
+    if (!event?.date) return;
+    const next = buildDefaultSmsText(event);
+    setCustomMessage((current) => {
+      if (current.trim() === '' || current === lastAutoTextRef.current) {
+        lastAutoTextRef.current = next;
+        return next;
+      }
+      return current;
+    });
+  }, [eventId, events]);
 
   useEffect(() => {
     if (!cardFile) {
@@ -183,6 +208,10 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
     }
     if (!customMessage.trim()) {
       setError('Andika ujumbe');
+      return;
+    }
+    if (customMessage.length > SMS_MAX_CHARS) {
+      setError('Ujumbe ni mrefu sana (zaidi ya herufi 918)');
       return;
     }
     if (channel !== 'sms' && !cardFile) {
@@ -284,6 +313,15 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
   const succeededCount = results.filter((r) => r.success).length;
   const failedCount = results.filter((r) => !r.success).length;
   const cardRequired = channel !== 'sms';
+  const messageLength = customMessage.length;
+  const messageHasNonAscii = /[^\u0000-\u007F]/.test(customMessage);
+  const smsParts = messageHasNonAscii
+    ? messageLength <= 70
+      ? 1
+      : Math.ceil(messageLength / 67)
+    : messageLength <= 160
+      ? 1
+      : Math.ceil(messageLength / 153);
 
   return (
     <Card padding="md" className="border border-primary/20">
@@ -435,8 +473,22 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
               placeholder="Habari [JINA]! ..."
               disabled={sending}
               rows={4}
+              maxLength={SMS_MAX_CHARS}
               className="input-field w-full min-h-[6rem] resize-y"
             />
+            <p className="text-small text-neutral-muted">
+              {messageLength} herufi - SMS {smsParts} kwa kila mgeni
+            </p>
+            {messageHasNonAscii && (
+              <p className="text-small text-neutral-muted">
+                Ondoa emoji na alama maalum ili kupunguza gharama.
+              </p>
+            )}
+            {smsParts >= 3 && (
+              <p className="text-small text-accent-warning">
+                Ujumbe huu utatumia SMS {smsParts} kwa kila mgeni.
+              </p>
+            )}
             <p className="text-small text-neutral-muted">
               [JINA] itabadilishwa na jina la kila mgeni automatically
             </p>
@@ -544,6 +596,7 @@ export function SendSingleGuestForm({ onSent }: SendSingleGuestFormProps) {
               !eventId ||
               selectedGuestIds.length === 0 ||
               !customMessage.trim() ||
+              customMessage.length > SMS_MAX_CHARS ||
               (cardRequired && !cardFile)
             }
             fullWidth

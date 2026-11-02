@@ -438,7 +438,7 @@ async function sendToGuest(params: {
         phone: `***${smsPhone.slice(-3)}`,
       });
       const smsResult = hasCustomMessage
-        ? await sendSMS(smsPhone, personalizedCustom)
+        ? await sendSMS(smsPhone, personalizedCustom, { allowLong: true })
         : await sendSMS(smsPhone, smsTemplate, {
             guestName: guest.name,
             guestType,

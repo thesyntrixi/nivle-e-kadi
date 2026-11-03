@@ -35,7 +35,9 @@ const WHATSAPP_SEND_FAILED_REASON = 'WhatsApp imeshindwa kutumwa';
 const SMS_SEND_FAILED_REASON = 'SMS imeshindwa kutumwa';
 const LOCATION_LINK_FALLBACK = 'Hakuna ramani';
 const WHATSAPP_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-const CARD_TOO_LARGE_REASON = 'Kadi ni kubwa kuliko 5MB. Punguza ukubwa na ujaribu tena.';
+const CARD_TOO_LARGE_REASON =
+  'Kadi ni kubwa kuliko 5MB au ukubwa haujulikani. Punguza ukubwa na ujaribu tena.';
+const QR_OVERLAY_FAILED_REASON = 'Imeshindwa kuongeza QR kwenye kadi.';
 
 type SendChannel = 'whatsapp' | 'sms' | 'both';
 type ChannelFeedback = 'ok' | 'failed' | 'skipped' | 'not_requested' | 'no_whatsapp';
@@ -191,13 +193,13 @@ async function uploadGuestCard(file: File, guestId: string): Promise<string> {
 async function overlayQrOnCard(
   cardImageUrl: string,
   guest: Guest
-): Promise<string> {
-  const cardWithQr = await generateCardWithQR(cardImageUrl, guest.invitation_code);
-  if (!cardWithQr) {
-    return cardImageUrl;
-  }
-
+): Promise<string | null> {
   try {
+    const cardWithQr = await generateCardWithQR(cardImageUrl, guest.invitation_code);
+    if (!cardWithQr) {
+      return null;
+    }
+
     const qrCardBlob = await put(`cards/qr-${guest.id}-${Date.now()}.jpg`, cardWithQr, {
       access: 'public',
       contentType: 'image/jpeg',
@@ -205,7 +207,7 @@ async function overlayQrOnCard(
     return qrCardBlob.url;
   } catch {
     console.error('Failed to upload card with QR overlay');
-    return cardImageUrl;
+    return null;
   }
 }
 
@@ -218,11 +220,11 @@ async function imageExceedsWhatsAppLimit(imageUrl: string): Promise<boolean> {
     }
 
     const response = await fetch(imageUrl);
-    if (!response.ok) return false;
+    if (!response.ok) return true;
     const buffer = Buffer.from(await response.arrayBuffer());
     return buffer.length > WHATSAPP_IMAGE_MAX_BYTES;
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -486,11 +488,16 @@ async function sendToGuest(params: {
           eventId: guest.event_id,
           phone: `***${whatsAppPhone.slice(-3)}`,
         });
-        whatsappHeaderImageUrl = await overlayQrOnCard(params.cardImageUrl, guest);
-        if (await imageExceedsWhatsAppLimit(whatsappHeaderImageUrl)) {
+        const qrCardUrl = await overlayQrOnCard(params.cardImageUrl, guest);
+        if (!qrCardUrl) {
+          whatsappResult = 'skipped';
+          whatsappReason = QR_OVERLAY_FAILED_REASON;
+        } else if (await imageExceedsWhatsAppLimit(qrCardUrl)) {
+          whatsappHeaderImageUrl = qrCardUrl;
           whatsappResult = 'skipped';
           whatsappReason = CARD_TOO_LARGE_REASON;
         } else {
+          whatsappHeaderImageUrl = qrCardUrl;
           const accepted = await sendAcceptedInvitation({
             to: whatsAppPhone,
             guestName: guest.name,
@@ -527,11 +534,16 @@ async function sendToGuest(params: {
           eventId: guest.event_id,
           phone: `***${whatsAppPhone.slice(-3)}`,
         });
-        whatsappHeaderImageUrl = await overlayQrOnCard(params.cardImageUrl, guest);
-        if (await imageExceedsWhatsAppLimit(whatsappHeaderImageUrl)) {
+        const qrCardUrl = await overlayQrOnCard(params.cardImageUrl, guest);
+        if (!qrCardUrl) {
+          whatsappResult = 'skipped';
+          whatsappReason = QR_OVERLAY_FAILED_REASON;
+        } else if (await imageExceedsWhatsAppLimit(qrCardUrl)) {
+          whatsappHeaderImageUrl = qrCardUrl;
           whatsappResult = 'skipped';
           whatsappReason = CARD_TOO_LARGE_REASON;
         } else {
+          whatsappHeaderImageUrl = qrCardUrl;
           const imageResult = await sendWhatsAppImageWithCaption(
             whatsAppPhone,
             whatsappHeaderImageUrl,

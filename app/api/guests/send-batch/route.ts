@@ -12,18 +12,25 @@ import {
   markGuestSent,
 } from '@/lib/database/queries';
 import { formatSwahiliDateTime } from '@/lib/utils/swahili-datetime';
-import { sendSMS } from '@/lib/services/sms';
+import { personalizeGuestMessage, sendSMS } from '@/lib/services/sms';
 import { sendWhatsAppInvitation } from '@/lib/services/whatsapp';
 import {
   isTemplateApproved,
   resolveWhatsAppTemplate,
-  templateBlockedReason,
   whatsAppTemplateLanguage,
 } from '@/lib/whatsapp-templates';
 import { guestHasWhatsApp } from '@/lib/utils/guest-whatsapp';
 
 const GUEST_DELAY_MS = 400;
 const DEFAULT_BATCH_SIZE = 10;
+const WHATSAPP_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const TEMPLATE_NOT_USABLE_REASON =
+  "Aina hii ya tukio haina template ya WhatsApp iliyokubaliwa. Tumia 'Tuma kwa Mtu Mmoja' kwa SMS, au subiri template ikubaliwe.";
+const CARD_TOO_LARGE_REASON =
+  'Kadi ni kubwa kuliko 5MB au ukubwa haujulikani. Punguza ukubwa na ujaribu tena.';
+const SMS_SEND_FAILED_REASON = 'SMS imeshindwa kutumwa';
+const SMS_TOO_LONG_REASON = 'Ujumbe ni mrefu sana (zaidi ya herufi 918)';
+const WHATSAPP_SEND_FAILED_REASON = 'WhatsApp imeshindwa kutumwa';
 
 function getUserId(request: NextRequest): string | null {
   const token = request.cookies.get('auth_token')?.value;
@@ -75,6 +82,47 @@ function buildSmsInvitationBody(
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function insertOutboundMessage(
+  guestId: string,
+  eventId: string,
+  messageType: 'SMS' | 'WhatsApp',
+  content: string,
+  success: boolean,
+  externalId?: string
+) {
+  await query(
+    `INSERT INTO messages
+       (guest_id, event_id, message_type, direction, content, status, external_message_id, sent_at)
+     VALUES ($1, $2, $3, 'outbound', $4, $5, $6, $7)`,
+    [
+      guestId,
+      eventId,
+      messageType,
+      content,
+      success ? 'Sent' : 'Failed',
+      externalId ?? null,
+      success ? new Date() : null,
+    ]
+  );
+}
+
+async function imageExceedsWhatsAppLimit(imageUrl: string): Promise<boolean> {
+  try {
+    const head = await fetch(imageUrl, { method: 'HEAD' });
+    const headerLength = Number(head.headers.get('content-length'));
+    if (Number.isFinite(headerLength) && headerLength > 0) {
+      return headerLength > WHATSAPP_IMAGE_MAX_BYTES;
+    }
+
+    const response = await fetch(imageUrl);
+    if (!response.ok) return true;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return buffer.length > WHATSAPP_IMAGE_MAX_BYTES;
+  } catch {
+    return true;
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -153,6 +201,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const templateName = resolveWhatsAppTemplate(event.type);
+    if (templateName === null || !isTemplateApproved(templateName)) {
+      return NextResponse.json(
+        { success: false, error: TEMPLATE_NOT_USABLE_REASON },
+        { status: 400 }
+      );
+    }
+
     const guests = await getGuestsToSend(eventId, guestType, batchSize, 0);
     const formattedDateTime = formatSwahiliDateTime(event.date, event.time);
     const venue = event.venue ?? '';
@@ -163,88 +219,104 @@ export async function POST(request: NextRequest) {
       venue,
       locationLink
     );
-    const templateName = resolveWhatsAppTemplate(event.type);
     const invitationSubject =
       templateName === 'nivle_event_invitation'
         ? event.family_name?.trim() || event.name
         : event.family_name?.trim() || '';
 
+    let imageBlocked: boolean | null = null;
     let succeeded = 0;
     let failed = 0;
-
-    if (templateName === null || !isTemplateApproved(templateName)) {
-      for (let i = 0; i < guests.length; i++) {
-        const guest = guests[i];
-        const guestTypeValue = guest.guest_type ?? 'single';
-        const phone = formatPhoneForSending(guest.phone);
-        try {
-          await sendSMS(phone, smsTemplate, {
-            guestName: guest.name,
-            guestType: guestTypeValue,
-          });
-        } catch {
-          console.error('SMS send error');
-        }
-        if (i < guests.length - 1) {
-          await delay(GUEST_DELAY_MS);
-        }
-      }
-
-      const remaining = await getPendingCounts(eventId);
-      return NextResponse.json(
-        {
-          success: false,
-          error: templateBlockedReason(templateName),
-          data: {
-            processed: guests.length,
-            succeeded: 0,
-            failed: 0,
-            remaining,
-          },
-        },
-        { status: 400 }
-      );
-    }
 
     for (let i = 0; i < guests.length; i++) {
       const guest = guests[i];
       const guestTypeValue = guest.guest_type ?? 'single';
       const phone = formatPhoneForSending(guest.phone);
+      const whatsappEligible = guestHasWhatsApp(guest.has_whatsapp);
 
       let smsOk = false;
+      let smsExternalId: string | undefined;
+      let smsFailureReason = SMS_SEND_FAILED_REASON;
       let whatsappOk = false;
+      let whatsappExternalId: string | undefined;
+      let whatsappSkipped = false;
+      let whatsappFailureReason = WHATSAPP_SEND_FAILED_REASON;
 
       try {
         const smsResult = await sendSMS(phone, smsTemplate, {
           guestName: guest.name,
           guestType: guestTypeValue,
+          allowLong: true,
         });
         smsOk = smsResult.success;
-      } catch (err) {
-        console.error('SMS send error:', err);
-      }
-
-      try {
-        if (guestHasWhatsApp(guest.has_whatsapp)) {
-          await sendWhatsAppInvitation(phone, {
-            guestName: guest.name,
-            guestType: guestTypeValue,
-            eventName: event.name,
-            familyName: invitationSubject,
-            dateTime: formattedDateTime,
-            venue: venue || 'TBA',
-            locationLink,
-            headerImageUrl: cardImageUrl,
-            templateName,
-            templateLanguage: whatsAppTemplateLanguage(templateName),
-          });
-          whatsappOk = true;
+        if (smsOk) {
+          smsExternalId = smsResult.externalId;
+        } else if (smsResult.error === SMS_TOO_LONG_REASON) {
+          smsFailureReason = SMS_TOO_LONG_REASON;
         }
-      } catch (err) {
-        console.error('WhatsApp invitation error:', err);
+      } catch {
+        console.error('SMS send error');
       }
 
-      const overallSuccess = smsOk || whatsappOk;
+      if (whatsappEligible) {
+        if (imageBlocked === null) {
+          imageBlocked = await imageExceedsWhatsAppLimit(cardImageUrl);
+        }
+        if (imageBlocked) {
+          whatsappSkipped = true;
+          whatsappFailureReason = CARD_TOO_LARGE_REASON;
+        } else {
+          try {
+            const waResponse = await sendWhatsAppInvitation(phone, {
+              guestName: guest.name,
+              guestType: guestTypeValue,
+              eventName: event.name,
+              familyName: invitationSubject,
+              dateTime: formattedDateTime,
+              venue: venue || 'TBA',
+              locationLink,
+              headerImageUrl: cardImageUrl,
+              templateName,
+              templateLanguage: whatsAppTemplateLanguage(templateName),
+            });
+            const externalId = waResponse?.messages?.[0]?.id;
+            if (typeof externalId === 'string' && externalId) {
+              whatsappOk = true;
+              whatsappExternalId = externalId;
+            }
+          } catch {
+            console.error('WhatsApp invitation error');
+          }
+        }
+      }
+
+      const smsContent = smsOk
+        ? personalizeGuestMessage(smsTemplate, guest.name, guestTypeValue)
+        : smsFailureReason;
+      await insertOutboundMessage(
+        guest.id,
+        eventId,
+        'SMS',
+        smsContent,
+        smsOk,
+        smsOk ? smsExternalId : undefined
+      );
+
+      if (whatsappEligible) {
+        const whatsappContent = whatsappOk
+          ? `Mwaliko wa ${event.name} — ${formattedDateTime}`
+          : whatsappFailureReason;
+        await insertOutboundMessage(
+          guest.id,
+          eventId,
+          'WhatsApp',
+          whatsappContent,
+          whatsappOk,
+          whatsappOk ? whatsappExternalId : undefined
+        );
+      }
+
+      const overallSuccess = smsOk && (!whatsappEligible || whatsappOk || whatsappSkipped);
       await markGuestSent(guest.id, overallSuccess);
 
       if (overallSuccess) {

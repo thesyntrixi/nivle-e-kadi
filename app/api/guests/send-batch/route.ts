@@ -239,7 +239,6 @@ export async function POST(request: NextRequest) {
       let smsFailureReason = SMS_SEND_FAILED_REASON;
       let whatsappOk = false;
       let whatsappExternalId: string | undefined;
-      let whatsappSkipped = false;
       let whatsappFailureReason = WHATSAPP_SEND_FAILED_REASON;
 
       try {
@@ -263,7 +262,6 @@ export async function POST(request: NextRequest) {
           imageBlocked = await imageExceedsWhatsAppLimit(cardImageUrl);
         }
         if (imageBlocked) {
-          whatsappSkipped = true;
           whatsappFailureReason = CARD_TOO_LARGE_REASON;
         } else {
           try {
@@ -316,7 +314,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const overallSuccess = smsOk && (!whatsappEligible || whatsappOk || whatsappSkipped);
+      const overallSuccess = smsOk && (!whatsappEligible || whatsappOk);
       await markGuestSent(guest.id, overallSuccess);
 
       if (overallSuccess) {

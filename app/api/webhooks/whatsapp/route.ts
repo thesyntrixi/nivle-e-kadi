@@ -3,6 +3,10 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getGuestByPhone, updateGuestRsvp } from '@/lib/database/queries';
+import {
+  verifyWhatsAppHubToken,
+  verifyWhatsAppSignature,
+} from '@/lib/services/whatsapp-signature';
 
 type RsvpStatus = 'attending' | 'not_attending';
 
@@ -39,13 +43,6 @@ async function logPhoneMatchingDebug(rawFrom: string) {
   console.log('WhatsApp inbound: matching guest', {
     channel: 'whatsapp',
     phone: `***${String(rawFrom).slice(-3)}`,
-  });
-
-  const guestPhonesResult = await query(
-    'SELECT phone FROM guests ORDER BY created_at DESC LIMIT 20'
-  );
-  console.log('WhatsApp inbound: sample guest phones in DB (limit 20):', {
-    count: guestPhonesResult.rows.length,
   });
 
   console.log('WhatsApp inbound: getGuestByPhone lookup', {
@@ -124,7 +121,7 @@ export async function GET(request: NextRequest) {
 
   if (
     mode === 'subscribe' &&
-    verifyToken === process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN &&
+    verifyWhatsAppHubToken(verifyToken) &&
     challenge
   ) {
     return new NextResponse(challenge, { status: 200 });
@@ -168,8 +165,13 @@ function logWhatsAppDeliveryStatus(statusItem: {
 }
 
 export async function POST(request: NextRequest) {
+  const rawBody = await request.text();
+  if (!verifyWhatsAppSignature(rawBody, request.headers.get('x-hub-signature-256'))) {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+
   try {
-    const body = await request.json();
+    const body = JSON.parse(rawBody);
 
     const entries = Array.isArray(body?.entry) ? body.entry : [];
 

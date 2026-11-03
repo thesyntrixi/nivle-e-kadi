@@ -23,16 +23,20 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   }
 }
 
+const DUMMY_PASSWORD_HASH =
+  '$2b$10$E.CbgWQUYRZsChwUcDaBBu.nTb5ma6o5lHpRszVoQJUxi/xWz0s8i';
+
 export async function authenticateUser(email: string, password: string): Promise<User | null> {
   const user = await getUserByEmail(email);
 
   if (!user) {
+    await verifyPassword(password, DUMMY_PASSWORD_HASH);
     return null;
   }
 
   const isPasswordValid = await verifyPassword(password, user.password_hash);
 
-  if (!isPasswordValid) {
+  if (!isPasswordValid || !user.is_active) {
     return null;
   }
 

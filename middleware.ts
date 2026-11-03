@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyToken, UserRole } from '@/lib/token';
+import { verifyTokenEdge, UserRole } from '@/lib/token-edge';
 
 const publicPaths = ['/login', '/api/auth/login', '/api/auth/logout', '/invite', '/api/webhooks/whatsapp', '/api/public/qr', '/api/public/cards'];
 
@@ -24,13 +24,13 @@ function isAdminOnlyRoute(pathname: string): boolean {
     .some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (publicPaths.some((path) => pathname.startsWith(path))) {
     if (pathname === '/login') {
       const token = request.cookies.get('auth_token')?.value;
-      const decoded = token ? verifyToken(token) : null;
+      const decoded = token ? await verifyTokenEdge(token) : null;
       if (decoded) {
         const redirectPath =
           decoded.role === 'check-in-staff' ? '/check-in-staff' : '/';
@@ -41,7 +41,7 @@ export function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get('auth_token')?.value;
-  const decoded = token ? verifyToken(token) : null;
+  const decoded = token ? await verifyTokenEdge(token) : null;
 
   if (!decoded) {
     if (pathname.startsWith('/api/')) {

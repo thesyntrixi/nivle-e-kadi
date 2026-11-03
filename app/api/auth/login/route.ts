@@ -17,14 +17,14 @@ export async function POST(request: NextRequest) {
 
     const user = await authenticateUser(email, password);
 
-    if (!user) {
+    if (!user || (user.role !== 'admin' && user.role !== 'check-in-staff')) {
       return NextResponse.json(
         { success: false, error: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
-    const token = generateToken(user.id, user.role ?? 'admin');
+    const token = generateToken(user.id, user.role);
 
     const response = NextResponse.json(
       {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
           user: {
             id: user.id,
             email: user.email,
-            role: user.role ?? 'admin',
+            role: user.role,
           },
         },
       },
